@@ -34,11 +34,21 @@ export function App() {
     <main className="app">
       <div className="app__backdrop" />
       <div className="app__layout">
+        <aside className="app__sidebar">
+          <TimerPanel snapshot={snapshot} />
+          <RecentSubmissionsPanel submissions={snapshot.recentSubmissions} />
+        </aside>
         <section className="app__main">
           <header className="scoreboard-header">
             <div>
               <p className="scoreboard-header__eyebrow">{snapshot.contestName}</p>
               <h1 className="scoreboard-header__title">{snapshot.regionName}</h1>
+            </div>
+            <div className="scoreboard-header__legend">
+              <span className="legend-chip legend-chip--solved">Solved</span>
+              <span className="legend-chip legend-chip--pending">Frozen</span>
+              <span className="legend-chip legend-chip--failed">Failed</span>
+              <span className="legend-chip legend-chip--untouched">Untouched</span>
             </div>
           </header>
 
@@ -49,11 +59,6 @@ export function App() {
             <span>{snapshot.updatedAtLabel}</span>
           </footer>
         </section>
-
-        <aside className="app__sidebar">
-          <TimerPanel snapshot={snapshot} />
-          <RecentSubmissionsPanel submissions={snapshot.recentSubmissions} />
-        </aside>
       </div>
     </main>
   );
