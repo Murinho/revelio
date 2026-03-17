@@ -36,7 +36,7 @@ export function App() {
       <div className="app__layout">
         <aside className="app__sidebar">
           <TimerPanel snapshot={snapshot} />
-          <RecentSubmissionsPanel submissions={snapshot.recentSubmissions} />
+          <RecentSubmissionsPanel submissions={snapshot.recentSubmissions} teams={snapshot.teams} />
         </aside>
         <section className="app__main">
           <header className="scoreboard-header">
