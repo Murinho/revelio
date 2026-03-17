@@ -1,0 +1,37 @@
+:root {
+  color-scheme: dark;
+  font-family: "Bahnschrift", "Trebuchet MS", "Segoe UI", sans-serif;
+  line-height: 1.4;
+  font-weight: 400;
+  background: #07111a;
+  color: #dce8f5;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  --text-strong: #f7fbff;
+  --text-soft: #c5d4e5;
+  --text-muted: #8da1b8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}

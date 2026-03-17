@@ -1,0 +1,92 @@
+export type ContestPhase = "frozen" | "revealing" | "complete";
+
+export type ProblemCellState =
+  | UntouchedProblemCell
+  | QueuedProblemCell
+  | FrozenPendingProblemCell
+  | FailedProblemCell
+  | SolvedProblemCell;
+
+export interface ContestSnapshot {
+  contestName: string;
+  regionName: string;
+  phase: ContestPhase;
+  durationLabel: string;
+  freezeLabel: string;
+  problems: ProblemMeta[];
+  teams: TeamStanding[];
+  recentSubmissions: RecentSubmission[];
+  revealQueue: RevealQueueEntry[];
+  updatedAtLabel: string;
+}
+
+export interface ProblemMeta {
+  id: string;
+  label: string;
+  color: string;
+}
+
+export interface TeamStanding {
+  id: string;
+  rank: number;
+  name: string;
+  organization: string;
+  solved: number;
+  penalty: number;
+  marked: boolean;
+  movement?: number;
+  pendingProblemLabels: string[];
+  problems: ProblemCellState[];
+}
+
+export interface RecentSubmission {
+  id: string;
+  contestMinute: number;
+  teamName: string;
+  problemLabel: string;
+  summary: string;
+  kind: "queued" | "frozen-pending";
+}
+
+export interface RevealQueueEntry {
+  teamId: string;
+  teamName: string;
+  currentRank: number;
+  nextProblemLabel: string | null;
+  pendingCount: number;
+  marked: boolean;
+}
+
+interface BaseProblemCell {
+  kind: string;
+  problemId: string;
+  problemLabel: string;
+}
+
+export interface UntouchedProblemCell extends BaseProblemCell {
+  kind: "untouched";
+}
+
+export interface QueuedProblemCell extends BaseProblemCell {
+  kind: "queued";
+  wrongAttempts: number;
+  frozenSubmissionCount: number;
+}
+
+export interface FrozenPendingProblemCell extends BaseProblemCell {
+  kind: "frozen-pending";
+  wrongAttempts: number;
+  frozenSubmissionCount: number;
+}
+
+export interface FailedProblemCell extends BaseProblemCell {
+  kind: "failed";
+  wrongAttempts: number;
+}
+
+export interface SolvedProblemCell extends BaseProblemCell {
+  kind: "solved";
+  wrongAttempts: number;
+  penalty: number;
+  firstToSolve: boolean;
+}
