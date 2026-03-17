@@ -16,7 +16,6 @@ export interface ContestSnapshot {
   problems: ProblemMeta[];
   teams: TeamStanding[];
   recentSubmissions: RecentSubmission[];
-  revealQueue: RevealQueueEntry[];
   updatedAtLabel: string;
 }
 
@@ -46,15 +45,6 @@ export interface RecentSubmission {
   problemLabel: string;
   summary: string;
   kind: "queued" | "frozen-pending";
-}
-
-export interface RevealQueueEntry {
-  teamId: string;
-  teamName: string;
-  currentRank: number;
-  nextProblemLabel: string | null;
-  pendingCount: number;
-  marked: boolean;
 }
 
 interface BaseProblemCell {

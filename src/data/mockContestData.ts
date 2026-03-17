@@ -2,7 +2,6 @@ import {
   ContestSnapshot,
   ProblemCellState,
   ProblemMeta,
-  RevealQueueEntry,
   TeamStanding
 } from "../domain/types";
 
@@ -330,15 +329,6 @@ const teams: TeamStanding[] = [
   ])
 ];
 
-const revealQueue: RevealQueueEntry[] = teams.map((team) => ({
-  teamId: team.id,
-  teamName: team.name,
-  currentRank: team.rank,
-  nextProblemLabel: team.pendingProblemLabels[0] ?? null,
-  pendingCount: team.pendingProblemLabels.length,
-  marked: team.marked
-}));
-
 export const mockContestSnapshot: ContestSnapshot = {
   contestName: "Revelio",
   regionName: "Latin America Championship",
@@ -347,7 +337,6 @@ export const mockContestSnapshot: ContestSnapshot = {
   freezeLabel: "Frozen during the final hour",
   problems,
   teams,
-  revealQueue,
   updatedAtLabel: "Updated from mock contest feed",
   recentSubmissions: [
     {

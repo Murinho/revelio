@@ -5,16 +5,9 @@ import { ProblemCell } from "./ProblemCell";
 interface ScoreboardTableProps {
   problems: ProblemMeta[];
   teams: TeamStanding[];
-  selectedTeamId: string | null;
-  onSelectTeam: (teamId: string) => void;
 }
 
-export function ScoreboardTable({
-  problems,
-  teams,
-  selectedTeamId,
-  onSelectTeam
-}: ScoreboardTableProps) {
+export function ScoreboardTable({ problems, teams }: ScoreboardTableProps) {
   return (
     <div className="scoreboard-shell">
       <div className="scoreboard-scroll">
@@ -35,51 +28,34 @@ export function ScoreboardTable({
             </tr>
           </thead>
           <tbody>
-            {teams.map((team) => {
-              const isSelected = team.id === selectedTeamId;
-
-              return (
-                <tr
-                  key={team.id}
-                  className={
-                    isSelected
-                      ? "scoreboard-table__row scoreboard-table__row--selected"
-                      : "scoreboard-table__row"
-                  }
-                  onClick={() => onSelectTeam(team.id)}
-                >
-                  <td className="scoreboard-table__cell scoreboard-table__cell--rank">
-                    <span className="rank-badge">{team.rank}</span>
+            {teams.map((team) => (
+              <tr key={team.id} className="scoreboard-table__row">
+                <td className="scoreboard-table__cell scoreboard-table__cell--rank">
+                  <span className="rank-badge">{team.rank}</span>
+                </td>
+                <td className="scoreboard-table__cell scoreboard-table__cell--team">
+                  <div className="team-cell">
+                    <strong className="team-cell__name">
+                      [{team.organization}] {team.name}
+                    </strong>
+                  </div>
+                </td>
+                <td className="scoreboard-table__cell scoreboard-table__cell--score">
+                  <div className="score-cell">
+                    <strong className="score-cell__solved">{team.solved}</strong>
+                    <span className="score-cell__penalty">{formatPenalty(team.penalty)}</span>
+                  </div>
+                </td>
+                {team.problems.map((cell, index) => (
+                  <td
+                    className="scoreboard-table__cell scoreboard-table__cell--problem"
+                    key={`${team.id}-${cell.problemId}`}
+                  >
+                    <ProblemCell cell={cell} problem={problems[index]} />
                   </td>
-                  <td className="scoreboard-table__cell scoreboard-table__cell--team">
-                    <div className="team-cell">
-                      <strong className="team-cell__name">
-                        [{team.organization}] {team.name}
-                      </strong>
-                      <span className="team-cell__status">
-                        {team.marked ? "Marked" : `${team.pendingProblemLabels.length} pending`}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="scoreboard-table__cell scoreboard-table__cell--score">
-                    <div className="score-cell">
-                      <strong className="score-cell__solved">{team.solved}</strong>
-                      <span className="score-cell__penalty">
-                        {formatPenalty(team.penalty)}
-                      </span>
-                    </div>
-                  </td>
-                  {team.problems.map((cell, index) => (
-                    <td
-                      className="scoreboard-table__cell scoreboard-table__cell--problem"
-                      key={`${team.id}-${cell.problemId}`}
-                    >
-                      <ProblemCell cell={cell} problem={problems[index]} />
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
+                ))}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
