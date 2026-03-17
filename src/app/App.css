@@ -148,10 +148,11 @@
 
 .submission-list__row {
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) 48px 72px;
+  grid-template-columns: 52px minmax(0, 1fr) 40px 82px;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.45rem 0.35rem;
+  min-height: 92px;
+  padding: 0;
   border-radius: 14px;
   background: rgba(99, 103, 120, 0.54);
   border: 1px solid rgba(31, 38, 48, 0.75);
@@ -160,6 +161,9 @@
 }
 
 .submission-list__rank {
+  display: grid;
+  place-items: center;
+  min-height: 92px;
   text-align: center;
   font-size: 1.1rem;
   color: #ffe887;
@@ -168,7 +172,9 @@
 .submission-list__details {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  justify-content: center;
+  min-height: 92px;
+  padding-right: 0.2rem;
 }
 
 .submission-list__team {
@@ -177,18 +183,11 @@
   color: #f4f6ff;
 }
 
-.submission-list__minute {
-  margin: 0;
-  font-size: 0.78rem;
-  color: var(--text-soft);
-}
-
 .submission-list__problem {
   display: grid;
   place-items: center;
-  width: 100%;
-  height: 100%;
-  padding: 0.35rem 0.55rem;
+  width: 40px;
+  min-height: 92px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
@@ -198,11 +197,13 @@
 .submission-list__attempts {
   display: grid;
   place-items: center;
-  padding: 0.35rem 0.45rem;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #ffe887, #ffc83d);
-  color: #211d1a;
-  font-size: 0.95rem;
+  width: 82px;
+  min-height: 92px;
+}
+
+.submission-list__attempts .problem-cell {
+  width: 82px;
+  height: 82px;
 }
 
 .scoreboard-header {

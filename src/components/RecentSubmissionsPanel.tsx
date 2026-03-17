@@ -6,6 +6,15 @@ interface RecentSubmissionsPanelProps {
   teams: TeamStanding[];
 }
 
+function getPendingCellParts(summary: string) {
+  const [main, bottom] = summary.split(" ");
+
+  return {
+    main: main ?? "?",
+    bottom: bottom ?? "+0"
+  };
+}
+
 export function RecentSubmissionsPanel({
   submissions,
   teams
@@ -13,10 +22,12 @@ export function RecentSubmissionsPanel({
   const teamByName = new Map(teams.map((team) => [team.name, team]));
 
   return (
-    <Panel title="Últimas Submisiones" eyebrow="Frozen feed">
+    <Panel title="Ultimas Submisiones" eyebrow="Frozen feed">
       <ul className="submission-list">
         {submissions.map((submission) => {
           const team = teamByName.get(submission.teamName);
+          const pendingCell = getPendingCellParts(submission.summary);
+
           return (
             <li className="submission-list__row" key={submission.id}>
               <span className="submission-list__rank">
@@ -26,12 +37,14 @@ export function RecentSubmissionsPanel({
                 <p className="submission-list__team">
                   {team ? `[${team.organization}] ${team.name}` : submission.teamName}
                 </p>
-                <p className="submission-list__minute">{submission.contestMinute} min</p>
               </div>
               <span className="submission-list__problem">{submission.problemLabel}</span>
-              <span className="submission-list__attempts">
-                {submission.summary}
-              </span>
+              <div className="submission-list__attempts">
+                <div className="problem-cell problem-cell--pending">
+                  <span className="problem-cell__main">{pendingCell.main}</span>
+                  <span className="problem-cell__bottom">{pendingCell.bottom}</span>
+                </div>
+              </div>
             </li>
           );
         })}
