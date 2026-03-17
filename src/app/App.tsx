@@ -44,12 +44,6 @@ export function App() {
               <p className="scoreboard-header__eyebrow">{snapshot.contestName}</p>
               <h1 className="scoreboard-header__title">{snapshot.regionName}</h1>
             </div>
-            <div className="scoreboard-header__legend">
-              <span className="legend-chip legend-chip--solved">Solved</span>
-              <span className="legend-chip legend-chip--pending">Frozen</span>
-              <span className="legend-chip legend-chip--failed">Failed</span>
-              <span className="legend-chip legend-chip--untouched">Untouched</span>
-            </div>
           </header>
 
           <ScoreboardTable problems={snapshot.problems} teams={snapshot.teams} />
