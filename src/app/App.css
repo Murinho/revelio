@@ -151,17 +151,17 @@
 
 .submission-list__row {
   display: grid;
-  grid-template-columns: 78px 360px 48px 82px;
+  grid-template-columns: 88px 360px 48px 82px;
   align-items: stretch;
   gap: 0.28rem;
-  min-height: 88px;
+  height: 88px;
   padding: 0;
   color: #fff;
   font-weight: 600;
 }
 
 .submission-list__cell {
-  min-height: 88px;
+  height: 88px;
   border-radius: 8px;
   display: grid;
   place-items: center;
@@ -195,7 +195,7 @@
 
 .submission-list__rank {
   text-align: center;
-  font-size: 1.2rem;
+  font-size: 1.6rem;
   font-weight: 800;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
 }
@@ -204,9 +204,9 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  min-height: 88px;
+  height: 88px;
   padding: 0.5rem 0.95rem;
-  text-align: left;
+  text-align: center;
 }
 
 .submission-list__team {
@@ -225,12 +225,14 @@
   display: grid;
   place-items: center;
   width: 82px;
-  min-height: 92px;
+  height: 88px;
+  padding: 0;
+  box-shadow: none;
 }
 
 .submission-list__attempts .problem-cell {
   width: 82px;
-  height: 82px;
+  height: 88px;
   border-radius: 8px;
 }
 
@@ -417,7 +419,7 @@
   display: grid;
   gap: 0.35rem;
   padding: 0.5rem 0.95rem;
-  text-align: left;
+  text-align: center;
 }
 
 .team-cell__name {

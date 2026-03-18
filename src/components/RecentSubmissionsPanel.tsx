@@ -48,7 +48,7 @@ export function RecentSubmissionsPanel({
           return (
             <li className="submission-list__row" key={submission.id}>
               <span
-                className={`submission-list__cell submission-list__cell--rank ${rankCellClass}`.trim()}
+                className={`submission-list__cell submission-list__cell--rank submission-list__rank ${rankCellClass}`.trim()}
               >
                 {team ? team.rank : submission.contestMinute}
               </span>
@@ -60,7 +60,7 @@ export function RecentSubmissionsPanel({
               <span className="submission-list__cell submission-list__cell--problem submission-list__problem">
                 {submission.problemLabel}
               </span>
-              <div className="submission-list__attempts">
+              <div className="submission-list__cell submission-list__attempts">
                 <div className="problem-cell problem-cell--pending">
                   <span className="problem-cell__main">{pendingCell.main}</span>
                   <span className="problem-cell__bottom">{pendingCell.bottom}</span>
