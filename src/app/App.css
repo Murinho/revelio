@@ -197,7 +197,7 @@
 
 .submission-list__rank {
   text-align: center;
-  font-size: 1.02rem;
+  font-size: 1.4rem;
   font-weight: 800;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
 }
@@ -213,14 +213,14 @@
 
 .submission-list__team {
   margin: 0;
-  font-size: 1.02rem;
+  font-size: 1.2rem;
   line-height: 1.18;
   font-weight: 800;
   color: #f4f6ff;
 }
 
 .submission-list__problem {
-  font-size: 1.02rem;
+  font-size: 1.2rem;
 }
 
 .submission-list__attempts {
@@ -332,7 +332,7 @@
   height: 46px;
   background: linear-gradient(180deg, #364351, #24303d);
   color: #ffffff;
-  font-size: 1.1rem;
+  font-size: 1.4rem;
   font-weight: 800;
   text-align: center;
   letter-spacing: 0.01em;
@@ -415,7 +415,7 @@
 .rank-value {
   display: inline-block;
   font-weight: 800;
-  font-size: 1.02rem;
+  font-size: 1.4rem;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
 }
 
@@ -428,7 +428,7 @@
 
 .team-cell__name {
   color: #f7fbff;
-  font-size: 1.02rem;
+  font-size: 1.2rem;
   line-height: 1.18;
   font-weight: 800;
 }
@@ -509,6 +509,14 @@
 .problem-cell--failed {
   background: linear-gradient(180deg, #7c3443, #5a2330);
   color: #ffffff;
+}
+
+.problem-cell--failed .problem-cell__main {
+  transform: translateY(-6px);
+}
+
+.problem-cell--failed .problem-cell__bottom {
+  bottom: 0.12rem;
 }
 
 .problem-cell--solved {
