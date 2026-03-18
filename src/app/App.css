@@ -24,24 +24,25 @@
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 520px minmax(0, 1fr);
-  gap: 2.25rem;
-  padding: 1rem;
+  grid-template-columns: 405px max-content;
+  gap: 1.65rem;
+  padding: 0.78rem;
   width: max-content;
-  min-width: 100%;
+  min-width: max-content;
   align-items: start;
 }
 
 .app__sidebar {
   display: grid;
-  gap: 0.85rem;
+  gap: 0.65rem;
   align-self: start;
 }
 
 .app__main {
   display: grid;
-  gap: 0.85rem;
-  min-width: 0;
+  gap: 0.65rem;
+  width: max-content;
+  min-width: max-content;
 }
 
 .loading-card {
@@ -73,31 +74,31 @@
 
 .panel {
   border: 1px solid rgba(104, 154, 214, 0.2);
-  border-radius: 20px;
+  border-radius: 16px;
   background: linear-gradient(180deg, rgba(16, 29, 47, 0.9), rgba(9, 19, 31, 0.96));
   box-shadow: 0 16px 44px rgba(0, 0, 0, 0.22);
 }
 
 .panel__header,
 .panel__content {
-  padding-inline: 0.9rem;
+  padding-inline: 0.72rem;
 }
 
 .panel__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.85rem;
-  padding-top: 0.9rem;
+  gap: 0.65rem;
+  padding-top: 0.72rem;
 }
 
 .panel__content {
-  padding-bottom: 0.9rem;
+  padding-bottom: 0.72rem;
 }
 
 .panel__eyebrow {
   margin: 0 0 0.2rem;
-  font-size: 0.72rem;
+  font-size: 0.58rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -105,7 +106,7 @@
 
 .panel__title {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.82rem;
   color: var(--text-strong);
 }
 
@@ -115,10 +116,10 @@
 
 .timer-panel__clock {
   font-family: "Consolas", "Courier New", monospace;
-  font-size: clamp(1.7rem, 5vw, 3rem);
+  font-size: clamp(1.3rem, 4vw, 2.3rem);
   font-weight: 800;
   line-height: 1;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.28rem;
   color: #2fc0ff;
   text-shadow: 0 0 16px rgba(47, 192, 255, 0.3);
 }
@@ -127,16 +128,17 @@
   margin: 0;
   color: var(--text-muted);
   font-weight: 600;
+  font-size: 0.82rem;
 }
 
 .timer-panel__phase {
   margin: 0.3rem 0 0;
   display: inline-flex;
-  padding: 0.25rem 0.7rem;
+  padding: 0.18rem 0.56rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-strong);
-  font-size: 0.72rem;
+  font-size: 0.58rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -146,23 +148,23 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.38rem;
+  gap: 0.28rem;
 }
 
 .submission-list__row {
   display: grid;
-  grid-template-columns: 74px 320px 42px 72px;
+  grid-template-columns: 58px 250px 34px 56px;
   align-items: stretch;
-  gap: 0.24rem;
-  height: 78px;
+  gap: 0.18rem;
+  height: 60px;
   padding: 0;
   color: #fff;
   font-weight: 600;
 }
 
 .submission-list__cell {
-  height: 78px;
-  border-radius: 7px;
+  height: 60px;
+  border-radius: 6px;
   display: grid;
   place-items: center;
   box-shadow: inset 0 0 0 1px rgba(10, 18, 28, 0.28);
@@ -195,7 +197,7 @@
 
 .submission-list__rank {
   text-align: center;
-  font-size: 1.35rem;
+  font-size: 1.02rem;
   font-weight: 800;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
 }
@@ -204,48 +206,48 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  height: 78px;
-  padding: 0.35rem 0.8rem;
+  height: 60px;
+  padding: 0.22rem 0.56rem;
   text-align: center;
 }
 
 .submission-list__team {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: 1.02rem;
   line-height: 1.18;
   font-weight: 800;
   color: #f4f6ff;
 }
 
 .submission-list__problem {
-  font-size: 1.35rem;
+  font-size: 1.02rem;
 }
 
 .submission-list__attempts {
   display: grid;
   place-items: center;
-  width: 72px;
-  height: 78px;
+  width: 56px;
+  height: 60px;
   padding: 0;
   box-shadow: none;
 }
 
 .submission-list__attempts .problem-cell {
-  width: 72px;
-  height: 78px;
-  border-radius: 7px;
+  width: 56px;
+  height: 60px;
+  border-radius: 6px;
 }
 
 .scoreboard-header {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 0.85rem;
+  gap: 0.65rem;
 }
 
 .scoreboard-header__eyebrow {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.62rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--text-muted);
@@ -254,21 +256,21 @@
 .scoreboard-header__title {
   margin: 0.25rem 0 0;
   color: var(--text-strong);
-  font-size: 2.45rem;
+  font-size: 1.9rem;
   line-height: 1.02;
 }
 
 .scoreboard-header__legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
+  gap: 0.4rem;
 }
 
 .legend-chip {
-  padding: 0.45rem 0.7rem;
+  padding: 0.32rem 0.5rem;
   color: #081119;
   border-radius: 999px;
-  font-size: 0.66rem;
+  font-size: 0.5rem;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -291,33 +293,35 @@
 }
 
 .scoreboard-shell {
-  min-width: 0;
+  width: max-content;
+  min-width: max-content;
   border: 1px solid rgba(104, 154, 214, 0.18);
-  border-radius: 24px;
+  border-radius: 18px;
   background: rgba(7, 15, 25, 0.85);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.25);
 }
 
 .scoreboard-scroll {
   overflow: auto;
-  border-radius: 24px;
-  padding: 0.3rem;
+  width: max-content;
+  border-radius: 18px;
+  padding: 0.22rem;
 }
 
 .scoreboard-table {
-  --cell-gap: 4px;
-  --rank-width: 70px;
-  --team-width: 320px;
-  --score-width: 88px;
+  --cell-gap: 3px;
+  --rank-width: 54px;
+  --team-width: 250px;
+  --score-width: 68px;
   border-collapse: separate;
   border-spacing: var(--cell-gap);
   width: max-content;
-  min-width: 100%;
+  min-width: max-content;
 }
 
 .scoreboard-table__head,
 .scoreboard-table__cell {
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
 }
 
@@ -325,10 +329,10 @@
   position: sticky;
   top: 0;
   z-index: 5;
-  height: 60px;
+  height: 46px;
   background: linear-gradient(180deg, #364351, #24303d);
   color: #ffffff;
-  font-size: 1.45rem;
+  font-size: 1.1rem;
   font-weight: 800;
   text-align: center;
   letter-spacing: 0.01em;
@@ -363,8 +367,8 @@
 
 .scoreboard-table__head--problem,
 .scoreboard-table__cell--problem {
-  width: 72px;
-  min-width: 72px;
+  width: 56px;
+  min-width: 56px;
 }
 
 .scoreboard-table__row {
@@ -378,7 +382,7 @@
 }
 
 .scoreboard-table__cell {
-  height: 78px;
+  height: 60px;
   padding: 0;
   background: #5a6672;
   text-align: center;
@@ -411,20 +415,20 @@
 .rank-value {
   display: inline-block;
   font-weight: 800;
-  font-size: 1.35rem;
+  font-size: 1.02rem;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
 }
 
 .team-cell {
   display: grid;
   gap: 0.35rem;
-  padding: 0.35rem 0.8rem;
+  padding: 0.22rem 0.56rem;
   text-align: center;
 }
 
 .team-cell__name {
   color: #f7fbff;
-  font-size: 1.35rem;
+  font-size: 1.02rem;
   line-height: 1.18;
   font-weight: 800;
 }
@@ -436,14 +440,14 @@
 }
 
 .score-cell__solved {
-  font-size: 1.9rem;
+  font-size: 1.45rem;
   color: #ffffff;
   line-height: 1;
 }
 
 .score-cell__penalty {
   color: #edf3f8;
-  font-size: 1.15rem;
+  font-size: 0.88rem;
   font-weight: 700;
 }
 
@@ -455,12 +459,12 @@
   gap: 0.1rem;
   padding-block: 0.1rem;
   font-weight: 800;
-  border-radius: 9px;
+  border-radius: 6px;
   overflow: hidden;
 }
 
 .problem-cell__main {
-  font-size: 1.9rem;
+  font-size: 1.45rem;
 }
 
 .problem-cell__bottom {
@@ -468,7 +472,7 @@
   bottom: 0.32rem;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 1.15rem;
+  font-size: 0.88rem;
   font-weight: 800;
 }
 
@@ -514,8 +518,8 @@
 
 .balloon {
   position: relative;
-  width: 50px;
-  height: 50px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
   background: var(--balloon-color);
@@ -548,16 +552,16 @@
 .balloon::after {
   content: "";
   position: absolute;
-  bottom: -7px;
+  bottom: -5px;
   left: 50%;
   width: 2px;
-  height: 8px;
+  height: 6px;
   background: rgba(255, 255, 255, 0.75);
   transform: translateX(-50%);
 }
 
 .balloon__text {
-  font-size: 1.9rem;
+  font-size: 1.45rem;
   font-weight: 900;
   text-shadow:
     0 1px 0 rgba(0, 0, 0, 0.95),
@@ -569,7 +573,7 @@
 
 .balloon__text--overlay {
   position: absolute;
-  top: 0.95rem;
+  top: 0.72rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;
@@ -582,5 +586,5 @@
   justify-content: space-between;
   gap: 1rem;
   color: var(--text-muted);
-  font-size: 0.92rem;
+  font-size: 0.72rem;
 }
