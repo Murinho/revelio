@@ -57,7 +57,9 @@ export function ProblemCell({ cell, problem }: ProblemCellProps) {
       <span className="balloon__text balloon__text--overlay">
         +{cell.wrongAttempts > 0 ? cell.wrongAttempts : ""}
       </span>
-      <span className="problem-cell__bottom">{cell.penalty}</span>
+      <span className="problem-cell__bottom problem-cell__bottom--overlay">
+        {cell.penalty}
+      </span>
     </div>
   );
 }

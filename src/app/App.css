@@ -418,7 +418,6 @@
 
 .problem-cell__main {
   font-size: 2.2rem;
-  line-height: 1;
 }
 
 .problem-cell__bottom {
@@ -428,7 +427,18 @@
   transform: translateX(-50%);
   font-size: 1.4rem;
   font-weight: 800;
-  line-height: 1;
+}
+
+.problem-cell__bottom--overlay {
+  bottom: 0.24rem;
+  z-index: 2;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.95),
+    0 -1px 0 rgba(0, 0, 0, 0.95),
+    1px 0 0 rgba(0, 0, 0, 0.95),
+    -1px 0 0 rgba(0, 0, 0, 0.95),
+    0 0 10px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
 }
 
 .problem-cell--untouched {
@@ -439,6 +449,14 @@
 .problem-cell--pending {
   background: linear-gradient(180deg, #ffe473, #ffca36);
   color: #10151c;
+}
+
+.problem-cell--pending .problem-cell__main {
+  transform: translateY(-6px);
+}
+
+.problem-cell--pending .problem-cell__bottom {
+  bottom: 0.12rem;
 }
 
 .problem-cell--failed {
@@ -508,7 +526,7 @@
 
 .balloon__text--overlay {
   position: absolute;
-  top: 1.4rem;
+  top: 1.02rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;
