@@ -362,16 +362,27 @@
   background: #596571;
 }
 
-.rank-badge {
-  display: inline-grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 13px;
-  background: linear-gradient(135deg, rgba(255, 195, 77, 0.85), rgba(178, 130, 36, 0.95));
+.scoreboard-table__cell--rank {
   color: #fffdf3;
+}
+
+.scoreboard-table__cell--rank-first {
+  background: linear-gradient(180deg, #daa520);
+}
+
+.scoreboard-table__cell--rank-second {
+  background: linear-gradient(180deg, #797979);
+}
+
+.scoreboard-table__cell--rank-third {
+  background: linear-gradient(180deg, #72591a);
+}
+
+.rank-value {
+  display: inline-block;
   font-weight: 800;
   font-size: 1.6rem;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
 }
 
 .team-cell {

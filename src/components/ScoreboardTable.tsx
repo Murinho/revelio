@@ -8,6 +8,22 @@ interface ScoreboardTableProps {
 }
 
 export function ScoreboardTable({ problems, teams }: ScoreboardTableProps) {
+  function getRankCellClass(rank: number) {
+    if (rank === 1) {
+      return "scoreboard-table__cell--rank-first";
+    }
+
+    if (rank === 2) {
+      return "scoreboard-table__cell--rank-second";
+    }
+
+    if (rank === 3) {
+      return "scoreboard-table__cell--rank-third";
+    }
+
+    return "";
+  }
+
   return (
     <div className="scoreboard-shell">
       <div className="scoreboard-scroll">
@@ -30,8 +46,12 @@ export function ScoreboardTable({ problems, teams }: ScoreboardTableProps) {
           <tbody>
             {teams.map((team) => (
               <tr key={team.id} className="scoreboard-table__row">
-                <td className="scoreboard-table__cell scoreboard-table__cell--rank">
-                  <span className="rank-badge">{team.rank}</span>
+                <td
+                  className={`scoreboard-table__cell scoreboard-table__cell--rank ${getRankCellClass(
+                    team.rank
+                  )}`.trim()}
+                >
+                  <span className="rank-value">{team.rank}</span>
                 </td>
                 <td className="scoreboard-table__cell scoreboard-table__cell--team">
                   <div className="team-cell">
