@@ -168,7 +168,7 @@
   place-items: center;
   min-height: 92px;
   text-align: center;
-  font-size: 1.1rem;
+  font-size: 1.6rem;
   color: #ffe887;
 }
 
@@ -182,7 +182,7 @@
 
 .submission-list__team {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 1.2rem;
   color: #f4f6ff;
 }
 
@@ -194,7 +194,7 @@
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
-  font-size: 1.2rem;
+  font-size: 1.6rem;
 }
 
 .submission-list__attempts {
@@ -299,7 +299,7 @@
   height: 68px;
   background: linear-gradient(180deg, #364351, #24303d);
   color: #ffffff;
-  font-size: 1.45rem;
+  font-size: 1.8rem;
   font-weight: 800;
   text-align: center;
   letter-spacing: 0.01em;
@@ -371,7 +371,7 @@
   background: linear-gradient(135deg, rgba(255, 195, 77, 0.85), rgba(178, 130, 36, 0.95));
   color: #fffdf3;
   font-weight: 800;
-  font-size: 1.2rem;
+  font-size: 1.6rem;
 }
 
 .team-cell {
@@ -383,7 +383,7 @@
 
 .team-cell__name {
   color: #f7fbff;
-  font-size: 1.18rem;
+  font-size: 1.6rem;
   line-height: 1.18;
   font-weight: 800;
 }
@@ -402,7 +402,7 @@
 
 .score-cell__penalty {
   color: #edf3f8;
-  font-size: 1.08rem;
+  font-size: 1.4rem;
   font-weight: 700;
 }
 
@@ -426,8 +426,9 @@
   bottom: 0.32rem;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 1.1rem;
+  font-size: 1.4rem;
   font-weight: 800;
+  line-height: 1;
 }
 
 .problem-cell--untouched {
@@ -457,7 +458,7 @@
   display: grid;
   place-items: center;
   background: var(--balloon-color);
-  color: #0d1620;
+  color: #ffffff;
   box-shadow:
     inset 0 -8px 12px rgba(0, 0, 0, 0.18),
     inset 0 2px 8px rgba(255, 255, 255, 0.25);
@@ -494,7 +495,7 @@
 }
 
 .balloon__text {
-  font-size: 1.18rem;
+  font-size: 2.2rem;
   font-weight: 900;
 }
 
