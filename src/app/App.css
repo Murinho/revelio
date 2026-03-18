@@ -274,22 +274,24 @@
 .scoreboard-scroll {
   overflow: auto;
   border-radius: 28px;
+  padding: 0.35rem;
 }
 
 .scoreboard-table {
+  --cell-gap: 5px;
   --rank-width: 78px;
   --team-width: 360px;
   --score-width: 98px;
   border-collapse: separate;
-  border-spacing: 0;
+  border-spacing: var(--cell-gap);
   width: max-content;
   min-width: 100%;
 }
 
 .scoreboard-table__head,
 .scoreboard-table__cell {
-  border-right: 2px solid rgba(3, 7, 12, 0.8);
-  border-bottom: 2px solid rgba(3, 7, 12, 0.8);
+  border-radius: 9px;
+  overflow: hidden;
 }
 
 .scoreboard-table__head {
@@ -317,7 +319,7 @@
 .scoreboard-table__head--team,
 .scoreboard-table__cell--team {
   position: sticky;
-  left: var(--rank-width);
+  left: calc(var(--rank-width) + var(--cell-gap));
   z-index: 4;
   width: var(--team-width);
   min-width: var(--team-width);
@@ -326,7 +328,7 @@
 .scoreboard-table__head--score,
 .scoreboard-table__cell--score {
   position: sticky;
-  left: calc(var(--rank-width) + var(--team-width));
+  left: calc(var(--rank-width) + var(--team-width) + (var(--cell-gap) * 2));
   z-index: 4;
   width: var(--score-width);
   min-width: var(--score-width);
@@ -354,6 +356,7 @@
   background: #5a6672;
   text-align: center;
   vertical-align: middle;
+  box-shadow: inset 0 0 0 1px rgba(10, 18, 28, 0.28);
 }
 
 .scoreboard-table__cell--rank,
@@ -425,6 +428,8 @@
   gap: 0.1rem;
   padding-block: 0.1rem;
   font-weight: 800;
+  border-radius: 9px;
+  overflow: hidden;
 }
 
 .problem-cell__main {
