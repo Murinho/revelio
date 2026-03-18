@@ -38,7 +38,7 @@ export function RecentSubmissionsPanel({
   }
 
   return (
-    <Panel title="Ultimas Submisiones" eyebrow="Frozen feed">
+    <Panel title="Last Submissions">
       <ul className="submission-list">
         {submissions.map((submission) => {
           const team = teamByName.get(submission.teamName);

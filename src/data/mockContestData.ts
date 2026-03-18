@@ -350,7 +350,7 @@ export const mockContestSnapshot: ContestSnapshot = {
     {
       id: "sub-2",
       contestMinute: 287,
-      teamName: "Champan en lata",
+      teamName: "hmmmmmmmmmmm?",
       problemLabel: "A",
       summary: "(8) +1",
       kind: "frozen-pending"
