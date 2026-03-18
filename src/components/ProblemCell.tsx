@@ -53,11 +53,10 @@ export function ProblemCell({ cell, problem }: ProblemCellProps) {
       <div
         className={`balloon ${cell.firstToSolve ? "balloon--star" : "balloon--round"}`}
         style={{ "--balloon-color": problem.color } as CSSProperties}
-      >
-        <span className="balloon__text">
-          +{cell.wrongAttempts > 0 ? cell.wrongAttempts : ""}
-        </span>
-      </div>
+      />
+      <span className="balloon__text balloon__text--overlay">
+        +{cell.wrongAttempts > 0 ? cell.wrongAttempts : ""}
+      </span>
       <span className="problem-cell__bottom">{cell.penalty}</span>
     </div>
   );

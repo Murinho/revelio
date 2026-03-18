@@ -462,6 +462,7 @@
   box-shadow:
     inset 0 -8px 12px rgba(0, 0, 0, 0.18),
     inset 0 2px 8px rgba(255, 255, 255, 0.25);
+  z-index: 1;
 }
 
 .balloon--round {
@@ -497,6 +498,22 @@
 .balloon__text {
   font-size: 2.2rem;
   font-weight: 900;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.95),
+    0 -1px 0 rgba(0, 0, 0, 0.95),
+    1px 0 0 rgba(0, 0, 0, 0.95),
+    -1px 0 0 rgba(0, 0, 0, 0.95),
+    0 0 10px rgba(0, 0, 0, 0.35);
+}
+
+.balloon__text--overlay {
+  position: absolute;
+  top: 1.4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .scoreboard-footer {
