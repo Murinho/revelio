@@ -114,6 +114,19 @@
   text-align: center;
 }
 
+.timer-panel__frozen-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.35rem;
+  color: #2fc0ff;
+  filter: drop-shadow(0 0 10px rgba(47, 192, 255, 0.25));
+}
+
+.timer-panel__frozen-svg {
+  width: 80px;
+  height: 80px;
+}
+
 .timer-panel__clock {
   font-family: "Consolas", "Courier New", monospace;
   font-size: clamp(5.3rem, 4vw, 5.3rem);
