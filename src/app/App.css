@@ -526,8 +526,8 @@
 
 .balloon {
   position: relative;
-  width: 50px;
-  height: 50px;
+  width: 45px;
+  height: 45px;
   display: grid;
   place-items: center;
   color: #ffffff;
@@ -539,7 +539,7 @@
 
 .balloon--round {
   border-radius: 54% 54% 50% 50% / 44% 44% 58% 58%;
-  transform: rotate(9deg);
+  transform: rotate(30deg);
   background: var(--balloon-color);
 }
 
@@ -572,13 +572,18 @@
 .balloon--round::after {
   content: "";
   position: absolute;
-  bottom: -23px;
+  bottom: -18px;
   left: 50%;
-  width: 20px;
-  height: 25px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 32'%3E%3Cpath d='M11 1 C18 10 5 16 13 31' stroke='%235f5957' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")
-      center / contain no-repeat;
-  transform: translateX(-65%);
+  width: 18px;
+  height: 20px;
+  background: var(--balloon-color);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 24'%3E%3Cpath d='M8 1 C16 6 3 12 11 17 C15 19 13 21 10 23' stroke='black' stroke-width='3.2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 24'%3E%3Cpath d='M8 1 C16 6 3 12 11 17 C15 19 13 21 10 23' stroke='black' stroke-width='3.2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  transform: translateX(-60%);
 }
 
 .balloon--star::after {
