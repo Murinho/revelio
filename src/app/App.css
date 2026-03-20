@@ -123,6 +123,12 @@
   gap: 1rem;
 }
 
+.scoreboard-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 .scoreboard-toolbar__summary {
   display: flex;
   flex-wrap: wrap;

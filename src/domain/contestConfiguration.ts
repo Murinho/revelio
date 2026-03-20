@@ -54,6 +54,16 @@ export function createDefaultContestConfiguration(now = new Date()): ContestConf
   };
 }
 
+export function cloneContestConfiguration(
+  configuration: ContestConfiguration
+): ContestConfiguration {
+  return {
+    ...configuration,
+    problems: configuration.problems.map((problem) => ({ ...problem })),
+    codeforces: { ...configuration.codeforces }
+  };
+}
+
 export function resizeContestProblems(
   problems: ContestProblemConfiguration[],
   nextCount: number

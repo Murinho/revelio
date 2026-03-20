@@ -1,21 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
 import { ContestSetupScreen } from "../components/ContestSetupScreen";
+import { MainMenuScreen } from "../components/MainMenuScreen";
 import { RecentSubmissionsPanel } from "../components/RecentSubmissionsPanel";
 import { ScoreboardTable } from "../components/ScoreboardTable";
 import { TimerPanel } from "../components/TimerPanel";
 import {
   AppRoute,
   CREATE_CONTEST_PATH,
-  SCOREBOARD_PREVIEW_CONTEST_ID,
+  HOME_PATH,
   buildScoreboardPath,
-  extractContestIdFromContestUrl,
-  parseAppRoute
+  parseAppRoute,
+  resolveContestId
 } from "./routes";
 import {
+  cloneContestConfiguration,
   createConfiguredContestPreview,
   createDefaultContestConfiguration,
   formatUtcSummary
 } from "../domain/contestConfiguration";
+import {
+  createManagedContest,
+  createMockManagedContests,
+  ManagedContest
+} from "../domain/managedContest";
 import { useContestSnapshot } from "../hooks/useContestSnapshot";
 import "./App.css";
 
@@ -27,6 +34,10 @@ export function App() {
   const [configuration, setConfiguration] = useState(() =>
     createDefaultContestConfiguration()
   );
+  const [editingContestId, setEditingContestId] = useState<string | null>(null);
+  const [managedContests, setManagedContests] = useState<ManagedContest[]>(() =>
+    createMockManagedContests()
+  );
   const previewSnapshot = useMemo(
     () =>
       snapshot
@@ -35,20 +46,15 @@ export function App() {
     [snapshot, configuration]
   );
   const shareableScoreboardPath = useMemo(() => {
-    const configuredContestId = extractContestIdFromContestUrl(
-      configuration.contestUrl
-    );
+    const contestId = resolveContestId({
+      contestUrl: configuration.contestUrl,
+      contestName: configuration.contestName,
+      fallbackContestId:
+        route.screen === "scoreboard" ? route.contestId : editingContestId
+    });
 
-    if (configuredContestId) {
-      return buildScoreboardPath(configuredContestId);
-    }
-
-    if (route.screen === "scoreboard") {
-      return buildScoreboardPath(route.contestId);
-    }
-
-    return buildScoreboardPath(SCOREBOARD_PREVIEW_CONTEST_ID);
-  }, [configuration.contestUrl, route]);
+    return buildScoreboardPath(contestId);
+  }, [configuration.contestName, configuration.contestUrl, editingContestId, route]);
 
   useEffect(() => {
     function handlePopState() {
@@ -78,6 +84,62 @@ export function App() {
     setRoute(nextRoute);
   }
 
+  function handleCreateContest() {
+    setEditingContestId(null);
+    setConfiguration(createDefaultContestConfiguration());
+    navigate(CREATE_CONTEST_PATH);
+  }
+
+  function handleOpenScoreboard(contest: ManagedContest) {
+    setEditingContestId(contest.id);
+    setConfiguration(cloneContestConfiguration(contest.configuration));
+    navigate(buildScoreboardPath(contest.id));
+  }
+
+  function handleEditContest(contest: ManagedContest) {
+    setEditingContestId(contest.id);
+    setConfiguration(cloneContestConfiguration(contest.configuration));
+    navigate(CREATE_CONTEST_PATH);
+  }
+
+  function handleDeleteContest(contest: ManagedContest) {
+    const shouldDelete = window.confirm(
+      `Delete "${contest.configuration.contestName}" from the main menu?`
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setManagedContests((currentContests) =>
+      currentContests.filter((currentContest) => currentContest.id !== contest.id)
+    );
+
+    if (editingContestId === contest.id) {
+      setEditingContestId(null);
+    }
+  }
+
+  function handleProceedToScoreboard() {
+    const contestId = resolveContestId({
+      contestUrl: configuration.contestUrl,
+      contestName: configuration.contestName,
+      fallbackContestId: editingContestId
+    });
+    const nextManagedContest = createManagedContest(contestId, configuration);
+
+    setManagedContests((currentContests) => [
+      nextManagedContest,
+      ...currentContests.filter(
+        (currentContest) =>
+          currentContest.id !== contestId &&
+          currentContest.id !== editingContestId
+      )
+    ]);
+    setEditingContestId(contestId);
+    navigate(buildScoreboardPath(contestId));
+  }
+
   if (route.screen === "not-found") {
     return (
       <main className="app app--loading">
@@ -89,11 +151,27 @@ export function App() {
           </p>
           <button
             className="secondary-button"
-            onClick={() => navigate(CREATE_CONTEST_PATH)}
+            onClick={() => navigate(HOME_PATH)}
           >
-            Go to Create Contest
+            Go to Main Menu
           </button>
         </div>
+      </main>
+    );
+  }
+
+  if (route.screen === "home") {
+    return (
+      <main className="app">
+        <div className="app__backdrop" />
+        <MainMenuScreen
+          userName="Adria"
+          contests={managedContests}
+          onCreateContest={handleCreateContest}
+          onOpenScoreboard={handleOpenScoreboard}
+          onEditContest={handleEditContest}
+          onDeleteContest={handleDeleteContest}
+        />
       </main>
     );
   }
@@ -108,7 +186,8 @@ export function App() {
           isScoreboardLoading={loading}
           scoreboardError={error}
           onChange={setConfiguration}
-          onProceed={() => navigate(shareableScoreboardPath)}
+          onBack={() => navigate(HOME_PATH)}
+          onProceed={handleProceedToScoreboard}
         />
       </main>
     );
@@ -124,9 +203,9 @@ export function App() {
           <p>Preparing the scoreboard preview and submission feed.</p>
           <button
             className="secondary-button"
-            onClick={() => navigate(CREATE_CONTEST_PATH)}
+            onClick={() => navigate(HOME_PATH)}
           >
-            Back to Create Contest
+            Back to Main Menu
           </button>
         </div>
       </main>
@@ -142,9 +221,9 @@ export function App() {
           <p>{error ?? "Missing contest snapshot."}</p>
           <button
             className="secondary-button"
-            onClick={() => navigate(CREATE_CONTEST_PATH)}
+            onClick={() => navigate(HOME_PATH)}
           >
-            Back to Create Contest
+            Back to Main Menu
           </button>
         </div>
       </main>
@@ -156,12 +235,20 @@ export function App() {
       <div className="app__backdrop" />
       <div className="app__scoreboard">
         <header className="scoreboard-toolbar">
-          <button
-            className="secondary-button"
-            onClick={() => navigate(CREATE_CONTEST_PATH)}
-          >
-            Back to Create Contest
-          </button>
+          <div className="scoreboard-toolbar__actions">
+            <button
+              className="secondary-button"
+              onClick={() => navigate(HOME_PATH)}
+            >
+              Back to Main Menu
+            </button>
+            <button
+              className="secondary-button"
+              onClick={() => navigate(CREATE_CONTEST_PATH)}
+            >
+              Edit Contest
+            </button>
+          </div>
 
           <div className="scoreboard-toolbar__summary">
             <span className="scoreboard-toolbar__chip">Contest {route.contestId}</span>

@@ -1,7 +1,13 @@
 const SCOREBOARD_BASE_PATH = "/scoreboard";
 
+export const HOME_PATH = "/";
 export const CREATE_CONTEST_PATH = "/create_contest";
 export const SCOREBOARD_PREVIEW_CONTEST_ID = "preview";
+
+type HomeRoute = {
+  screen: "home";
+  path: string;
+};
 
 type SetupRoute = {
   screen: "setup";
@@ -19,12 +25,19 @@ type NotFoundRoute = {
   path: string;
 };
 
-export type AppRoute = SetupRoute | ScoreboardRoute | NotFoundRoute;
+export type AppRoute = HomeRoute | SetupRoute | ScoreboardRoute | NotFoundRoute;
 
 export function parseAppRoute(pathname: string): AppRoute {
   const normalizedPath = normalizePathname(pathname);
 
-  if (normalizedPath === "/" || normalizedPath === CREATE_CONTEST_PATH) {
+  if (normalizedPath === HOME_PATH) {
+    return {
+      screen: "home",
+      path: HOME_PATH
+    };
+  }
+
+  if (normalizedPath === CREATE_CONTEST_PATH) {
     return {
       screen: "setup",
       path: CREATE_CONTEST_PATH
@@ -64,6 +77,34 @@ export function buildScoreboardPath(contestId: string): string {
     normalizeContestId(contestId) ?? SCOREBOARD_PREVIEW_CONTEST_ID;
 
   return `${SCOREBOARD_BASE_PATH}/${encodeURIComponent(normalizedContestId)}`;
+}
+
+export function createContestIdCandidate(value: string): string | null {
+  return normalizeContestId(value);
+}
+
+export function resolveContestId(options: {
+  contestUrl: string;
+  contestName?: string;
+  fallbackContestId?: string | null;
+}): string {
+  const contestIdFromUrl = extractContestIdFromContestUrl(options.contestUrl);
+
+  if (contestIdFromUrl) {
+    return contestIdFromUrl;
+  }
+
+  const contestIdFromName = createContestIdCandidate(options.contestName ?? "");
+
+  if (contestIdFromName) {
+    return contestIdFromName;
+  }
+
+  const fallbackContestId = createContestIdCandidate(
+    options.fallbackContestId ?? ""
+  );
+
+  return fallbackContestId ?? SCOREBOARD_PREVIEW_CONTEST_ID;
 }
 
 export function extractContestIdFromContestUrl(contestUrl: string): string | null {

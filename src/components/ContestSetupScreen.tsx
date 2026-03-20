@@ -15,6 +15,7 @@ interface ContestSetupScreenProps {
   isScoreboardLoading: boolean;
   scoreboardError: string | null;
   onChange: (nextConfiguration: ContestConfiguration) => void;
+  onBack: () => void;
   onProceed: () => void;
 }
 
@@ -29,6 +30,7 @@ export function ContestSetupScreen({
   isScoreboardLoading,
   scoreboardError,
   onChange,
+  onBack,
   onProceed
 }: ContestSetupScreenProps) {
   const problemCount = configuration.problems.length;
@@ -198,10 +200,16 @@ export function ContestSetupScreen({
             </p>
           </div>
 
-          <div className="setup-header__chips" aria-label="Contest status">
-            <span className="setup-header__chip">UTC Schedule</span>
-            <span className="setup-header__chip">{problemCount} Problems</span>
-            <span className="setup-header__chip">Private Mashup</span>
+          <div className="setup-header__actions">
+            <button className="secondary-button" type="button" onClick={onBack}>
+              Back to Main Menu
+            </button>
+
+            <div className="setup-header__chips" aria-label="Contest status">
+              <span className="setup-header__chip">UTC Schedule</span>
+              <span className="setup-header__chip">{problemCount} Problems</span>
+              <span className="setup-header__chip">Private Mashup</span>
+            </div>
           </div>
         </header>
 
