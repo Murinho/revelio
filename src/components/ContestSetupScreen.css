@@ -310,6 +310,11 @@
   color: rgba(141, 161, 184, 0.72);
 }
 
+.setup-input option {
+  background: #102033;
+  color: var(--text-strong);
+}
+
 .setup-input:focus {
   outline: none;
   border-color: rgba(47, 192, 255, 0.6);
