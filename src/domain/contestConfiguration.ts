@@ -46,7 +46,7 @@ export function createDefaultContestConfiguration(now = new Date()): ContestConf
     durationMinutes: 300,
     freezeDurationMinutes: 60,
     contestUrl: "",
-    problems: resizeContestProblems([], 12),
+    problems: resizeContestProblems([], MAX_PROBLEM_COUNT),
     codeforces: {
       apiKey: "",
       apiSecret: ""
