@@ -10,6 +10,16 @@
   padding: 2rem;
 }
 
+.app__scoreboard {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.78rem;
+  width: max-content;
+  min-width: max-content;
+  padding: 0.78rem;
+}
+
 .app__backdrop {
   position: fixed;
   inset: 0;
@@ -46,6 +56,10 @@
 }
 
 .loading-card {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 1rem;
   width: min(100%, 480px);
   padding: 2rem;
   border: 1px solid rgba(104, 154, 214, 0.28);
@@ -59,6 +73,11 @@
   border-color: rgba(255, 117, 117, 0.4);
 }
 
+.loading-card h1,
+.loading-card p {
+  margin: 0;
+}
+
 .loading-card__logo {
   width: 72px;
   height: 72px;
@@ -70,6 +89,60 @@
   color: #02111d;
   font-size: 2rem;
   font-weight: 800;
+}
+
+.secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 46px;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(104, 154, 214, 0.28);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(12, 23, 37, 0.94), rgba(8, 16, 27, 0.98));
+  color: var(--text-strong);
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.secondary-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(47, 192, 255, 0.36);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+}
+
+.scoreboard-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.scoreboard-toolbar__summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.scoreboard-toolbar__chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0.42rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid rgba(122, 171, 228, 0.2);
+  background: rgba(10, 20, 31, 0.82);
+  color: #d9e8f8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .panel {
@@ -648,6 +721,7 @@
 .scoreboard-footer {
   display: flex;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 1rem;
   color: var(--text-muted);
   font-size: 0.72rem;
