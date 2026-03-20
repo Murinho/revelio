@@ -194,10 +194,6 @@ export function ContestSetupScreen({
           <div>
             <p className="setup-header__eyebrow">Revelio</p>
             <h2 className="setup-header__title">Create Contest</h2>
-            <p className="setup-header__description">
-              UI-focused for now, with a configuration model that is already ready
-              to feed a backend endpoint and future Codeforces integration.
-            </p>
           </div>
 
           <div className="setup-header__actions">
@@ -219,10 +215,6 @@ export function ContestSetupScreen({
               <div className="setup-fields">
                 <label className="setup-field setup-field--full">
                   <span className="setup-field__label">Name of the contest</span>
-                  <span className="setup-field__hint">
-                    This title can be sent straight to the future backend create
-                    contest request.
-                  </span>
                   <input
                     className="setup-input"
                     type="text"
@@ -234,9 +226,6 @@ export function ContestSetupScreen({
 
                 <label className="setup-field setup-field--full">
                   <span className="setup-field__label">URL of the contest</span>
-                  <span className="setup-field__hint">
-                    Keep the contest link ready for future dashboard and API flows.
-                  </span>
                   <input
                     className="setup-input"
                     type="url"

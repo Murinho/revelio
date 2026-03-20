@@ -22,24 +22,21 @@ interface MainMenuScreenProps {
 
 const SECTION_COPY: Record<
   ContestTimelineBucket,
-  { eyebrow: string; title: string; description: string; statusLabel: string }
+  { eyebrow: string; title: string; statusLabel: string }
 > = {
   current: {
     eyebrow: "Running Now",
     title: "Current Contests",
-    description: "The contests that are live right now and ready for quick scoreboard access.",
     statusLabel: "Live"
   },
   future: {
     eyebrow: "On Deck",
     title: "Future Contests",
-    description: "Upcoming events queued for launch once their start times arrive.",
     statusLabel: "Upcoming"
   },
   past: {
     eyebrow: "Archive",
     title: "Past Contests",
-    description: "Recent contests you can still inspect, revisit, or reuse as templates.",
     statusLabel: "Past"
   }
 };
@@ -131,28 +128,6 @@ export function MainMenuScreen({
       </aside>
 
       <section className="menu-main">
-        <header className="menu-header">
-          <div>
-            <p className="menu-header__eyebrow">Revelio Dashboard</p>
-            <h2 className="menu-header__title">Contest Management Main Menu</h2>
-            <p className="menu-header__description">
-              Use the lists below to jump into a scoreboard, tune settings, or retire
-              a contest entry while keeping the same broadcast-style UI language as the
-              preview surfaces.
-            </p>
-          </div>
-
-          <div className="menu-header__chips" aria-label="Contest overview">
-            <span className="menu-header__chip">
-              {groupedContests.current.length} Live
-            </span>
-            <span className="menu-header__chip">
-              {groupedContests.future.length} Future
-            </span>
-            <span className="menu-header__chip">{groupedContests.past.length} Past</span>
-          </div>
-        </header>
-
         <div className="menu-sections">
           <ContestSection
             bucket="current"
@@ -210,10 +185,6 @@ function ContestSection({
         </span>
       }
     >
-      <div className="menu-section-copy">
-        <p>{sectionCopy.description}</p>
-      </div>
-
       <div className="menu-contest-table" role="table" aria-label={sectionCopy.title}>
         <div className="menu-contest-table__head" role="row">
           <span>Contest</span>
