@@ -190,24 +190,11 @@ export function ContestSetupScreen({
       </aside>
 
       <section className="setup-main">
-        <header className="setup-header">
-          <div>
-            <p className="setup-header__eyebrow">Revelio</p>
-            <h2 className="setup-header__title">Create Contest</h2>
-          </div>
-
-          <div className="setup-header__actions">
-            <button className="secondary-button" type="button" onClick={onBack}>
-              Back to Main Menu
-            </button>
-
-            <div className="setup-header__chips" aria-label="Contest status">
-              <span className="setup-header__chip">UTC Schedule</span>
-              <span className="setup-header__chip">{problemCount} Problems</span>
-              <span className="setup-header__chip">Private Mashup</span>
-            </div>
-          </div>
-        </header>
+        <div className="setup-header__actions">
+          <button className="secondary-button" type="button" onClick={onBack}>
+            Back to Main Menu
+          </button>
+        </div>
 
         <form className="setup-form" onSubmit={handleSubmit}>
           <div className="setup-form__grid">
