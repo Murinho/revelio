@@ -22,22 +22,25 @@ interface MainMenuScreenProps {
 
 const SECTION_COPY: Record<
   ContestTimelineBucket,
-  { eyebrow: string; title: string; description: string }
+  { eyebrow: string; title: string; description: string; statusLabel: string }
 > = {
   current: {
     eyebrow: "Running Now",
     title: "Current Contests",
-    description: "The contests that are live right now and ready for quick scoreboard access."
+    description: "The contests that are live right now and ready for quick scoreboard access.",
+    statusLabel: "Live"
   },
   future: {
     eyebrow: "On Deck",
     title: "Future Contests",
-    description: "Upcoming events queued for launch once their start times arrive."
+    description: "Upcoming events queued for launch once their start times arrive.",
+    statusLabel: "Upcoming"
   },
   past: {
     eyebrow: "Archive",
     title: "Past Contests",
-    description: "Recent contests you can still inspect, revisit, or reuse as templates."
+    description: "Recent contests you can still inspect, revisit, or reuse as templates.",
+    statusLabel: "Past"
   }
 };
 
@@ -63,10 +66,6 @@ export function MainMenuScreen({
       "past"
     )
   };
-
-  const runningCount = groupedContests.current.length;
-  const upcomingCount = groupedContests.future.length;
-  const archivedCount = groupedContests.past.length;
 
   return (
     <div className="menu-layout">
@@ -98,21 +97,6 @@ export function MainMenuScreen({
             >
               Create Contest
             </button>
-
-            <div className="menu-hero-panel__stats">
-              <article className="menu-stat-card">
-                <span className="menu-stat-card__label">Managed</span>
-                <strong className="menu-stat-card__value">{contests.length}</strong>
-              </article>
-              <article className="menu-stat-card">
-                <span className="menu-stat-card__label">Live</span>
-                <strong className="menu-stat-card__value">{runningCount}</strong>
-              </article>
-              <article className="menu-stat-card">
-                <span className="menu-stat-card__label">Upcoming</span>
-                <strong className="menu-stat-card__value">{upcomingCount}</strong>
-              </article>
-            </div>
           </div>
         </section>
 
@@ -121,23 +105,25 @@ export function MainMenuScreen({
             <div className="menu-summary-row">
               <span className="menu-summary-row__label">Live scoreboards</span>
               <strong className="menu-summary-row__value">
-                {runningCount === 0
+                {groupedContests.current.length === 0
                   ? "No active scoreboard right now"
-                  : `${runningCount} running contest${runningCount === 1 ? "" : "s"}`}
+                  : `${groupedContests.current.length} running contest${
+                      groupedContests.current.length === 1 ? "" : "s"
+                    }`}
               </strong>
             </div>
             <div className="menu-summary-row">
               <span className="menu-summary-row__label">Upcoming launches</span>
               <strong className="menu-summary-row__value">
-                {upcomingCount} contest{upcomingCount === 1 ? "" : "s"} waiting in the
-                queue
+                {groupedContests.future.length} contest
+                {groupedContests.future.length === 1 ? "" : "s"} waiting in the queue
               </strong>
             </div>
             <div className="menu-summary-row">
               <span className="menu-summary-row__label">Recent archive</span>
               <strong className="menu-summary-row__value">
-                {archivedCount} past contest{archivedCount === 1 ? "" : "s"} ready for
-                replay
+                {groupedContests.past.length} past contest
+                {groupedContests.past.length === 1 ? "" : "s"} ready for replay
               </strong>
             </div>
           </div>
@@ -157,9 +143,13 @@ export function MainMenuScreen({
           </div>
 
           <div className="menu-header__chips" aria-label="Contest overview">
-            <span className="menu-header__chip">{runningCount} Live</span>
-            <span className="menu-header__chip">{upcomingCount} Future</span>
-            <span className="menu-header__chip">{archivedCount} Past</span>
+            <span className="menu-header__chip">
+              {groupedContests.current.length} Live
+            </span>
+            <span className="menu-header__chip">
+              {groupedContests.future.length} Future
+            </span>
+            <span className="menu-header__chip">{groupedContests.past.length} Past</span>
           </div>
         </header>
 
@@ -213,7 +203,12 @@ function ContestSection({
       title={sectionCopy.title}
       eyebrow={sectionCopy.eyebrow}
       className="menu-panel menu-panel--table"
-      actions={<span className="menu-section-count">{contests.length}</span>}
+      actions={
+        <span className={`menu-section-status menu-section-status--${bucket}`}>
+          <span className="menu-section-status__dot" aria-hidden="true" />
+          <span>{sectionCopy.statusLabel}</span>
+        </span>
+      }
     >
       <div className="menu-section-copy">
         <p>{sectionCopy.description}</p>
