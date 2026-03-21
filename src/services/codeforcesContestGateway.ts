@@ -5,6 +5,7 @@ import {
 } from "../domain/contestConfiguration";
 import {
   ContestSnapshot,
+  HiddenSubmission,
   PendingRevealOutcome,
   ProblemCellState,
   ProblemMeta,
@@ -388,18 +389,22 @@ function buildProblemCell(
   const solveTimeSeconds =
     problemResult?.bestSubmissionTimeSeconds ??
     attempts.find((attempt) => attempt.isAccepted)?.relativeTimeSeconds;
+  const hiddenAttempts = attempts.filter(
+    (attempt) => attempt.relativeTimeSeconds > freezeStartSeconds
+  );
   const preFreezeWrongAttempts = attempts.filter(
     (attempt) => attempt.isRejected && attempt.relativeTimeSeconds <= freezeStartSeconds
   ).length;
-  const hiddenWrongAttempts = Math.max(0, finalWrongAttempts - preFreezeWrongAttempts);
+  const hiddenWrongAttempts = hiddenAttempts.filter((attempt) => attempt.isRejected).length;
   const solvedBeforeFreeze =
     finalSolved &&
     solveTimeSeconds !== undefined &&
     solveTimeSeconds <= freezeStartSeconds;
-  const solvedAfterFreeze =
-    finalSolved &&
-    solveTimeSeconds !== undefined &&
-    solveTimeSeconds > freezeStartSeconds;
+  const hiddenSubmissions: HiddenSubmission[] = hiddenAttempts.map((attempt, attemptIndex) => ({
+    id: `${problem.id}-hidden-${attempt.id}-${attemptIndex}`,
+    contestMinute: toContestMinute(attempt.relativeTimeSeconds),
+    result: attempt.isAccepted ? "accepted" : "rejected"
+  }));
 
   if (solvedBeforeFreeze && solveTimeSeconds !== undefined) {
     return {
@@ -412,25 +417,22 @@ function buildProblemCell(
     };
   }
 
-  if (hiddenWrongAttempts > 0 || solvedAfterFreeze) {
-    const frozenSubmissionCount = hiddenWrongAttempts + (solvedAfterFreeze ? 1 : 0);
+  if (hiddenSubmissions.length > 0) {
+    const frozenSubmissionCount = hiddenSubmissions.length;
     const revealOutcome: PendingRevealOutcome = {
-      result: solvedAfterFreeze ? "solved" : "failed",
+      result: finalSolved ? "solved" : "failed",
       hiddenWrongAttempts,
       finalWrongAttempts,
-      contestMinute:
-        solvedAfterFreeze && solveTimeSeconds !== undefined
-          ? toContestMinute(solveTimeSeconds)
-          : null,
-      penalty:
-        solvedAfterFreeze && solveTimeSeconds !== undefined
-          ? computeIcpcPenalty(solveTimeSeconds, finalWrongAttempts)
-          : null,
+      contestMinute: finalSolved && solveTimeSeconds !== undefined ? toContestMinute(solveTimeSeconds) : null,
+      penalty: finalSolved && solveTimeSeconds !== undefined
+        ? computeIcpcPenalty(solveTimeSeconds, finalWrongAttempts)
+        : null,
       lastHiddenContestMinute: getLastHiddenContestMinute(
         attempts,
         freezeStartSeconds,
         solveTimeSeconds
-      )
+      ),
+      hiddenSubmissions
     };
 
     return {

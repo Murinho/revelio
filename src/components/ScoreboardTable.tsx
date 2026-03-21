@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { ProblemMeta, TeamStanding } from "../domain/types";
 import { formatPenalty } from "../utils/format";
 import { ProblemCell } from "./ProblemCell";
@@ -6,9 +6,19 @@ import { ProblemCell } from "./ProblemCell";
 interface ScoreboardTableProps {
   problems: ProblemMeta[];
   teams: TeamStanding[];
+  focusTeamId?: string | null;
+  focusRequestKey?: string | null;
 }
 
-export function ScoreboardTable({ problems, teams }: ScoreboardTableProps) {
+const ROW_REORDER_DURATION_MS = 820;
+const ROW_REORDER_EASING = "cubic-bezier(0.65, 0, 0.35, 1)";
+
+export function ScoreboardTable({
+  problems,
+  teams,
+  focusTeamId = null,
+  focusRequestKey = null
+}: ScoreboardTableProps) {
   const rowElementsRef = useRef(new Map<string, HTMLTableRowElement>());
   const previousRowTopsRef = useRef(new Map<string, number>());
 
@@ -48,14 +58,34 @@ export function ScoreboardTable({ problems, teams }: ScoreboardTableProps) {
           }
         ],
         {
-          duration: 700,
-          easing: "cubic-bezier(0.22, 1, 0.36, 1)"
+          duration: ROW_REORDER_DURATION_MS,
+          easing: ROW_REORDER_EASING
         }
       );
     });
 
     previousRowTopsRef.current = nextRowTops;
   }, [teams]);
+
+  useEffect(() => {
+    if (!focusTeamId) {
+      return;
+    }
+
+    const rowElement = rowElementsRef.current.get(focusTeamId);
+
+    if (!rowElement) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      centerRowInView(rowElement);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [focusRequestKey, focusTeamId]);
 
   function getRankCellClass(rank: number) {
     if (rank === 1) {
@@ -154,4 +184,62 @@ export function ScoreboardTable({ problems, teams }: ScoreboardTableProps) {
       </div>
     </div>
   );
+}
+
+function centerRowInView(rowElement: HTMLTableRowElement) {
+  const scrollContainers = getVerticalScrollContainers(rowElement);
+
+  if (scrollContainers.length === 0) {
+    rowElement.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+      inline: "nearest"
+    });
+    return;
+  }
+
+  scrollContainers.forEach((container) => {
+    const rowRect = rowElement.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const targetScrollTop =
+      container.scrollTop +
+      rowRect.top -
+      containerRect.top -
+      (container.clientHeight - rowRect.height) / 2;
+
+    container.scrollTo({
+      top: Math.max(0, targetScrollTop),
+      behavior: "smooth"
+    });
+  });
+}
+
+function getVerticalScrollContainers(element: HTMLElement): HTMLElement[] {
+  const scrollContainers: HTMLElement[] = [];
+  let currentElement = element.parentElement;
+
+  while (currentElement) {
+    const computedStyles = window.getComputedStyle(currentElement);
+    const canScrollVertically =
+      /(auto|scroll|overlay)/.test(computedStyles.overflowY) &&
+      currentElement.scrollHeight > currentElement.clientHeight + 1;
+
+    if (canScrollVertically) {
+      scrollContainers.push(currentElement);
+    }
+
+    currentElement = currentElement.parentElement;
+  }
+
+  const documentScroller = document.scrollingElement;
+
+  if (
+    documentScroller instanceof HTMLElement &&
+    documentScroller.scrollHeight > documentScroller.clientHeight + 1 &&
+    !scrollContainers.includes(documentScroller)
+  ) {
+    scrollContainers.push(documentScroller);
+  }
+
+  return scrollContainers;
 }

@@ -1,5 +1,7 @@
 import {
   ContestSnapshot,
+  HiddenSubmission,
+  PendingProblemCell,
   PendingRevealOutcome,
   ProblemCellState,
   SolvedProblemCell,
@@ -14,9 +16,12 @@ export interface UnfreezeRevealEvent {
   problemId: string;
   problemLabel: string;
   contestMinute: number;
-  result: "solved" | "failed";
+  verdict: "rejected" | "accepted";
+  result: "pending" | "solved" | "failed";
   wrongAttempts: number;
+  frozenSubmissionCount: number;
   penalty: number | null;
+  nextCell: ProblemCellState;
 }
 
 export function createFrozenSnapshot(snapshot: ContestSnapshot): ContestSnapshot {
@@ -30,10 +35,14 @@ export function createFrozenSnapshot(snapshot: ContestSnapshot): ContestSnapshot
       problems: team.problems.map((cell) =>
         cell.kind === "queued"
           ? {
-              ...cell,
-              kind: "frozen-pending"
+              kind: "frozen-pending",
+              problemId: cell.problemId,
+              problemLabel: cell.problemLabel,
+              wrongAttempts: cell.wrongAttempts,
+              frozenSubmissionCount: cell.frozenSubmissionCount,
+              revealOutcome: cell.revealOutcome ? cloneRevealOutcome(cell.revealOutcome) : undefined
             }
-          : { ...cell }
+          : cloneProblemCell(cell)
       )
     })),
     recentSubmissions: snapshot.recentSubmissions.map((submission) => ({
@@ -48,17 +57,9 @@ export function buildUnfreezeRevealEvents(
 ): UnfreezeRevealEvent[] {
   let teams = rankTeams(
     applyFirstToSolveFlags(
-      createFrozenSnapshot(snapshot).teams.map((team) => ({
-        ...team,
-        marked: false,
-        problems: team.problems.map((cell) => ({ ...cell }))
-      }))
+      createFrozenSnapshot(snapshot).teams.map((team) => cloneTeam(team, false))
     )
-  ).map((team) => ({
-    ...team,
-    marked: false
-  }));
-
+  );
   const revealEvents: UnfreezeRevealEvent[] = [];
 
   while (true) {
@@ -81,13 +82,13 @@ export function buildUnfreezeRevealEvents(
       const problemIndex = findNextPendingProblemIndex(activeTeam);
 
       if (problemIndex < 0) {
-        teams = teams.map((currentTeam) =>
-          currentTeam.id === activeTeamId
+        teams = teams.map((team) =>
+          team.id === activeTeamId
             ? {
-                ...currentTeam,
+                ...team,
                 marked: true
               }
-            : currentTeam
+            : team
         );
         break;
       }
@@ -106,8 +107,7 @@ export function buildUnfreezeRevealEvents(
       );
 
       revealEvents.push(revealEvent);
-
-      teams[activeTeamIndex].problems[problemIndex] = createRevealedCell(revealEvent);
+      teams[activeTeamIndex].problems[problemIndex] = cloneProblemCell(revealEvent.nextCell);
       teams = rankTeams(applyFirstToSolveFlags(teams));
     }
   }
@@ -119,11 +119,7 @@ export function applyUnfreezeProgress(
   revealCount: number
 ): ContestSnapshot {
   const frozenSnapshot = createFrozenSnapshot(snapshot);
-  const nextTeams = frozenSnapshot.teams.map((team) => ({
-    ...team,
-    marked: false,
-    problems: team.problems.map((cell) => ({ ...cell }))
-  }));
+  const nextTeams = frozenSnapshot.teams.map((team) => cloneTeam(team, false));
   const teamIndexById = new Map(nextTeams.map((team, index) => [team.id, index]));
 
   revealEvents.slice(0, revealCount).forEach((event) => {
@@ -141,7 +137,7 @@ export function applyUnfreezeProgress(
       return;
     }
 
-    nextTeams[teamIndex].problems[problemIndex] = createRevealedCell(event);
+    nextTeams[teamIndex].problems[problemIndex] = cloneProblemCell(event.nextCell);
   });
 
   const rankedTeams = rankTeams(applyFirstToSolveFlags(nextTeams));
@@ -155,7 +151,7 @@ export function applyUnfreezeProgress(
     updatedAtLabel:
       pendingCount === 0
         ? "All frozen submissions have been revealed"
-        : `${revealedCount} reveal${revealedCount === 1 ? "" : "s"} completed`
+        : `${revealedCount} submission${revealedCount === 1 ? "" : "s"} revealed`
   };
 }
 
@@ -165,72 +161,187 @@ export function countRevealedSolves(revealEvents: UnfreezeRevealEvent[]): number
 
 function buildRevealEventFromPendingCell(
   team: TeamStanding,
-  cell: Extract<ProblemCellState, { kind: "queued" | "frozen-pending" }>,
+  cell: PendingProblemCell,
   teamIndex: number,
   problemIndex: number
 ): UnfreezeRevealEvent {
-  const revealOutcome = cell.revealOutcome ?? createSyntheticRevealOutcome(cell, teamIndex, problemIndex);
-  const contestMinute = revealOutcome.contestMinute ?? revealOutcome.lastHiddenContestMinute ?? 0;
-  const penalty =
-    revealOutcome.result === "solved"
-      ? revealOutcome.penalty ??
-        contestMinute + Math.max(0, revealOutcome.finalWrongAttempts) * 20
-      : null;
+  const revealOutcome =
+    cell.revealOutcome?.hiddenSubmissions.length
+      ? cloneRevealOutcome(cell.revealOutcome)
+      : createSyntheticRevealOutcome(cell, teamIndex, problemIndex);
+  const [hiddenSubmission, ...remainingHiddenSubmissions] =
+    revealOutcome.hiddenSubmissions;
+
+  if (!hiddenSubmission) {
+    throw new Error(
+      `Pending cell ${team.id}/${cell.problemId} is missing hidden submissions.`
+    );
+  }
+
+  const nextWrongAttempts =
+    cell.wrongAttempts + (hiddenSubmission.result === "rejected" ? 1 : 0);
+  const contestMinute =
+    hiddenSubmission.contestMinute ??
+    revealOutcome.contestMinute ??
+    revealOutcome.lastHiddenContestMinute ??
+    0;
+  const nextCell = createNextCell(
+    cell,
+    revealOutcome,
+    hiddenSubmission,
+    remainingHiddenSubmissions,
+    nextWrongAttempts,
+    contestMinute
+  );
+  const result =
+    nextCell.kind === "solved"
+      ? "solved"
+      : nextCell.kind === "failed"
+        ? "failed"
+        : "pending";
 
   return {
-    id: `${team.id}-${cell.problemId}`,
+    id: `${team.id}-${cell.problemId}-${hiddenSubmission.id}`,
     teamId: team.id,
     teamName: team.name,
     organization: team.organization,
     problemId: cell.problemId,
     problemLabel: cell.problemLabel,
     contestMinute,
-    result: revealOutcome.result,
-    wrongAttempts: revealOutcome.finalWrongAttempts,
-    penalty
+    verdict: hiddenSubmission.result,
+    result,
+    wrongAttempts: nextWrongAttempts,
+    frozenSubmissionCount: isPendingCell(nextCell) ? nextCell.frozenSubmissionCount : 0,
+    penalty: nextCell.kind === "solved" ? nextCell.penalty : null,
+    nextCell
+  };
+}
+
+function createNextCell(
+  cell: PendingProblemCell,
+  revealOutcome: PendingRevealOutcome,
+  hiddenSubmission: HiddenSubmission,
+  remainingHiddenSubmissions: HiddenSubmission[],
+  wrongAttempts: number,
+  contestMinute: number
+): ProblemCellState {
+  if (hiddenSubmission.result === "accepted") {
+    return {
+      kind: "solved",
+      problemId: cell.problemId,
+      problemLabel: cell.problemLabel,
+      wrongAttempts,
+      penalty:
+        revealOutcome.penalty ?? contestMinute + Math.max(0, wrongAttempts) * 20,
+      firstToSolve: false
+    };
+  }
+
+  if (remainingHiddenSubmissions.length === 0) {
+    return {
+      kind: "failed",
+      problemId: cell.problemId,
+      problemLabel: cell.problemLabel,
+      wrongAttempts
+    };
+  }
+
+  return {
+    kind: cell.kind === "queued" ? "queued" : "frozen-pending",
+    problemId: cell.problemId,
+    problemLabel: cell.problemLabel,
+    wrongAttempts,
+    frozenSubmissionCount: remainingHiddenSubmissions.length,
+    revealOutcome: {
+      ...revealOutcome,
+      result: remainingHiddenSubmissions.some(
+        (submission) => submission.result === "accepted"
+      )
+        ? "solved"
+        : "failed",
+      hiddenWrongAttempts: remainingHiddenSubmissions.filter(
+        (submission) => submission.result === "rejected"
+      ).length,
+      lastHiddenContestMinute:
+        remainingHiddenSubmissions[remainingHiddenSubmissions.length - 1]
+          ?.contestMinute ?? null,
+      hiddenSubmissions: remainingHiddenSubmissions
+    }
   };
 }
 
 function createSyntheticRevealOutcome(
-  cell: Extract<ProblemCellState, { kind: "queued" | "frozen-pending" }>,
+  cell: PendingProblemCell,
   teamIndex: number,
   problemIndex: number
 ): PendingRevealOutcome {
   const revealSeed =
     teamIndex + problemIndex + cell.wrongAttempts + cell.frozenSubmissionCount;
-  const contestMinute = 240 + revealSeed * 3;
   const solved =
     (problemIndex + teamIndex + cell.frozenSubmissionCount) % 4 !== 0;
-  const finalWrongAttempts = solved
-    ? cell.wrongAttempts + Math.max(0, cell.frozenSubmissionCount - 1)
-    : cell.wrongAttempts + cell.frozenSubmissionCount;
+  const hiddenSubmissions: HiddenSubmission[] = Array.from(
+    { length: Math.max(1, cell.frozenSubmissionCount) },
+    (_, hiddenIndex) => {
+      const contestMinute = 240 + revealSeed * 3 + hiddenIndex * 4;
+      const isAccepted = solved && hiddenIndex === cell.frozenSubmissionCount - 1;
+
+      return {
+        id: `synthetic-${cell.problemId}-${hiddenIndex + 1}`,
+        contestMinute,
+        result: isAccepted ? "accepted" : "rejected"
+      };
+    }
+  );
+  const hiddenWrongAttempts = hiddenSubmissions.filter(
+    (submission) => submission.result === "rejected"
+  ).length;
+  const finalWrongAttempts = cell.wrongAttempts + hiddenWrongAttempts;
+  const solveSubmission = hiddenSubmissions.find(
+    (submission) => submission.result === "accepted"
+  );
+  const contestMinute = solveSubmission?.contestMinute ?? null;
 
   return {
     result: solved ? "solved" : "failed",
-    hiddenWrongAttempts: Math.max(0, finalWrongAttempts - cell.wrongAttempts),
+    hiddenWrongAttempts,
     finalWrongAttempts,
     contestMinute,
-    penalty: solved ? contestMinute + finalWrongAttempts * 20 : null,
-    lastHiddenContestMinute: contestMinute
+    penalty:
+      solved && contestMinute !== null
+        ? contestMinute + finalWrongAttempts * 20
+        : null,
+    lastHiddenContestMinute:
+      hiddenSubmissions[hiddenSubmissions.length - 1]?.contestMinute ?? null,
+    hiddenSubmissions
   };
 }
 
-function createRevealedCell(event: UnfreezeRevealEvent): ProblemCellState {
-  return event.result === "solved"
-    ? {
-        kind: "solved",
-        problemId: event.problemId,
-        problemLabel: event.problemLabel,
-        wrongAttempts: event.wrongAttempts,
-        penalty: event.penalty ?? event.contestMinute,
-        firstToSolve: false
-      }
-    : {
-        kind: "failed",
-        problemId: event.problemId,
-        problemLabel: event.problemLabel,
-        wrongAttempts: event.wrongAttempts
-      };
+function cloneRevealOutcome(revealOutcome: PendingRevealOutcome): PendingRevealOutcome {
+  return {
+    ...revealOutcome,
+    hiddenSubmissions: revealOutcome.hiddenSubmissions.map((submission) => ({
+      ...submission
+    }))
+  };
+}
+
+function cloneProblemCell(cell: ProblemCellState): ProblemCellState {
+  if (!isPendingCell(cell)) {
+    return { ...cell };
+  }
+
+  return {
+    ...cell,
+    revealOutcome: cell.revealOutcome ? cloneRevealOutcome(cell.revealOutcome) : undefined
+  };
+}
+
+function cloneTeam(team: TeamStanding, marked: boolean): TeamStanding {
+  return {
+    ...team,
+    marked,
+    problems: team.problems.map((cell) => cloneProblemCell(cell))
+  };
 }
 
 function findLastUnmarkedTeamIndex(teams: TeamStanding[]): number {
@@ -330,8 +441,6 @@ function isSolvedCell(cell: ProblemCellState): cell is SolvedProblemCell {
   return cell.kind === "solved";
 }
 
-function isPendingCell(
-  cell: ProblemCellState
-): cell is Extract<ProblemCellState, { kind: "queued" | "frozen-pending" }> {
+function isPendingCell(cell: ProblemCellState): cell is PendingProblemCell {
   return cell.kind === "queued" || cell.kind === "frozen-pending";
 }

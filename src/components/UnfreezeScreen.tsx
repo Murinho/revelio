@@ -1,22 +1,18 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ScoreboardTable } from "./ScoreboardTable";
-import { ContestConfiguration } from "../domain/contestConfiguration";
 import { ContestSnapshot } from "../domain/types";
 import {
   applyUnfreezeProgress,
-  buildUnfreezeRevealEvents
+  buildUnfreezeRevealEvents,
+  UnfreezeRevealEvent
 } from "../domain/unfreezeSimulation";
 import "./UnfreezeScreen.css";
 
 interface UnfreezeScreenProps {
-  configuration: ContestConfiguration;
   snapshot: ContestSnapshot;
 }
 
-export function UnfreezeScreen({
-  configuration,
-  snapshot
-}: UnfreezeScreenProps) {
+export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
   const revealEvents = useMemo(() => buildUnfreezeRevealEvents(snapshot), [snapshot]);
   const [revealCount, setRevealCount] = useState(0);
   const unfreezeSnapshot = useMemo(
@@ -26,6 +22,40 @@ export function UnfreezeScreen({
   const completed = revealCount >= revealEvents.length;
   const nextReveal = revealEvents[revealCount] ?? null;
   const latestReveal = revealCount > 0 ? revealEvents[revealCount - 1] : null;
+  const canStepBackward = revealCount > 0;
+  const canStepForward = revealCount < revealEvents.length;
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (
+        event.defaultPrevented ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        isEditableEventTarget(event.target)
+      ) {
+        return;
+      }
+
+      if (event.key === "ArrowRight" && canStepForward) {
+        event.preventDefault();
+        setRevealCount((currentCount) =>
+          Math.min(currentCount + 1, revealEvents.length)
+        );
+      }
+
+      if (event.key === "ArrowLeft" && canStepBackward) {
+        event.preventDefault();
+        setRevealCount((currentCount) => Math.max(currentCount - 1, 0));
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [canStepBackward, canStepForward, revealEvents.length]);
 
   return (
     <div className="unfreeze-shell">
@@ -33,20 +63,21 @@ export function UnfreezeScreen({
         <h1 className="unfreeze-header__title">{snapshot.regionName}</h1>
         <div className="unfreeze-status">
           <span className="unfreeze-status__badge">
-            Reveals {revealCount}/{revealEvents.length}
+            Submissions {revealCount}/{revealEvents.length}
           </span>
           <p className="unfreeze-status__text">
             {nextReveal
-              ? `Next: ${nextReveal.teamName} on problem ${nextReveal.problemLabel}.`
+              ? `Next: ${formatUpcomingReveal(nextReveal)}`
               : "All frozen problem cells have been revealed."}
           </p>
           {latestReveal ? (
             <p className="unfreeze-status__text unfreeze-status__text--muted">
-              Last: {latestReveal.teamName}{" "}
-              {latestReveal.result === "solved" ? "solved" : "missed"}{" "}
-              {latestReveal.problemLabel}.
+              Last: {formatCompletedReveal(latestReveal)}
             </p>
           ) : null}
+          <p className="unfreeze-status__text unfreeze-status__text--muted">
+            Keyboard: <kbd>Right Arrow</kbd> next submission, <kbd>Left Arrow</kbd> go back.
+          </p>
         </div>
         <div className="unfreeze-controls">
           <button
@@ -57,7 +88,7 @@ export function UnfreezeScreen({
                 Math.max(currentCount - 1, 0)
               )
             }
-            disabled={revealCount === 0}
+            disabled={!canStepBackward}
           >
             Go Back One Submission
           </button>
@@ -69,9 +100,9 @@ export function UnfreezeScreen({
                 Math.min(currentCount + 1, revealEvents.length)
               )
             }
-            disabled={completed}
+            disabled={!canStepForward}
           >
-            {completed ? "Unfreeze Complete" : "Unfreeze Next Reveal"}
+            {completed ? "Unfreeze Complete" : "Unfreeze Next Submission"}
           </button>
           <button
             className="secondary-button"
@@ -85,9 +116,48 @@ export function UnfreezeScreen({
       </header>
 
       <ScoreboardTable
+        focusTeamId={nextReveal?.teamId ?? null}
+        focusRequestKey={nextReveal?.id ?? null}
         problems={unfreezeSnapshot.problems}
         teams={unfreezeSnapshot.teams}
       />
     </div>
   );
+}
+
+function isEditableEventTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (target.isContentEditable) {
+    return true;
+  }
+
+  const editableAncestor = target.closest("input, textarea, select, [contenteditable='true']");
+  return editableAncestor !== null;
+}
+
+function formatUpcomingReveal(revealEvent: UnfreezeRevealEvent): string {
+  if (revealEvent.verdict === "accepted") {
+    return `${revealEvent.teamName} will solve problem ${revealEvent.problemLabel}.`;
+  }
+
+  if (revealEvent.result === "failed") {
+    return `${revealEvent.teamName} will exhaust problem ${revealEvent.problemLabel}.`;
+  }
+
+  return `${revealEvent.teamName} will reveal another wrong try on problem ${revealEvent.problemLabel}.`;
+}
+
+function formatCompletedReveal(revealEvent: UnfreezeRevealEvent): string {
+  if (revealEvent.verdict === "accepted") {
+    return `${revealEvent.teamName} solved problem ${revealEvent.problemLabel}.`;
+  }
+
+  if (revealEvent.result === "failed") {
+    return `${revealEvent.teamName} exhausted problem ${revealEvent.problemLabel}.`;
+  }
+
+  return `${revealEvent.teamName} revealed a wrong try on problem ${revealEvent.problemLabel}.`;
 }

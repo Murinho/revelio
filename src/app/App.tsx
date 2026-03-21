@@ -248,10 +248,7 @@ export function App() {
     return (
       <main className="app">
         <div className="app__backdrop" />
-        <UnfreezeScreen
-          configuration={targetContest.configuration}
-          snapshot={snapshot}
-        />
+        <UnfreezeScreen snapshot={snapshot} />
       </main>
     );
   }

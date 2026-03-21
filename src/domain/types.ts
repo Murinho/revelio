@@ -55,6 +55,13 @@ export interface PendingRevealOutcome {
   contestMinute: number | null;
   penalty: number | null;
   lastHiddenContestMinute: number | null;
+  hiddenSubmissions: HiddenSubmission[];
+}
+
+export interface HiddenSubmission {
+  id: string;
+  contestMinute: number | null;
+  result: "rejected" | "accepted";
 }
 
 interface BaseProblemCell {
@@ -80,6 +87,8 @@ export interface FrozenPendingProblemCell extends BaseProblemCell {
   frozenSubmissionCount: number;
   revealOutcome?: PendingRevealOutcome;
 }
+
+export type PendingProblemCell = QueuedProblemCell | FrozenPendingProblemCell;
 
 export interface FailedProblemCell extends BaseProblemCell {
   kind: "failed";
