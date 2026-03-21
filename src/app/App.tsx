@@ -4,8 +4,10 @@ import { MainMenuScreen } from "../components/MainMenuScreen";
 import { RecentSubmissionsPanel } from "../components/RecentSubmissionsPanel";
 import { ScoreboardTable } from "../components/ScoreboardTable";
 import { TimerPanel } from "../components/TimerPanel";
+import { UnfreezeScreen } from "../components/UnfreezeScreen";
 import {
   AppRoute,
+  buildUnfreezePath,
   CREATE_CONTEST_PATH,
   HOME_PATH,
   buildScoreboardPath,
@@ -96,6 +98,12 @@ export function App() {
     navigate(buildScoreboardPath(contest.id));
   }
 
+  function handleOpenUnfreeze(contest: ManagedContest) {
+    setEditingContestId(contest.id);
+    setConfiguration(cloneContestConfiguration(contest.configuration));
+    navigate(buildUnfreezePath(contest.id));
+  }
+
   function handleEditContest(contest: ManagedContest) {
     setEditingContestId(contest.id);
     setConfiguration(cloneContestConfiguration(contest.configuration));
@@ -169,8 +177,86 @@ export function App() {
           contests={managedContests}
           onCreateContest={handleCreateContest}
           onOpenScoreboard={handleOpenScoreboard}
+          onOpenUnfreeze={handleOpenUnfreeze}
           onEditContest={handleEditContest}
           onDeleteContest={handleDeleteContest}
+        />
+      </main>
+    );
+  }
+
+  if (route.screen === "unfreeze") {
+    const targetContest =
+      managedContests.find((contest) => contest.id === route.contestId) ?? null;
+
+    if (!targetContest) {
+      return (
+        <main className="app app--loading">
+          <div className="app__backdrop" />
+          <div className="loading-card loading-card--error">
+            <h1>Contest not available</h1>
+            <p>
+              No saved contest configuration was found for <code>{route.contestId}</code>.
+            </p>
+            <button
+              className="secondary-button"
+              onClick={() => navigate(HOME_PATH)}
+            >
+              Back to Home
+            </button>
+          </div>
+        </main>
+      );
+    }
+
+    if (loading) {
+      return (
+        <main className="app app--loading">
+          <div className="app__backdrop" />
+          <div className="loading-card">
+            <div className="loading-card__logo">R</div>
+            <h1>Preparing unfreeze replay...</h1>
+            <p>Loading the frozen scoreboard state and reveal queue.</p>
+            <button
+              className="secondary-button"
+              onClick={() => navigate(HOME_PATH)}
+            >
+              Back to Home
+            </button>
+          </div>
+        </main>
+      );
+    }
+
+    if (error || !snapshot) {
+      return (
+        <main className="app app--loading">
+          <div className="app__backdrop" />
+          <div className="loading-card loading-card--error">
+            <h1>Unable to open unfreeze replay</h1>
+            <p>{error ?? "Missing contest snapshot."}</p>
+            <button
+              className="secondary-button"
+              onClick={() => navigate(HOME_PATH)}
+            >
+              Back to Home
+            </button>
+          </div>
+        </main>
+      );
+    }
+
+    const unfreezeSnapshot = createConfiguredContestPreview(
+      snapshot,
+      targetContest.configuration
+    );
+
+    return (
+      <main className="app">
+        <div className="app__backdrop" />
+        <UnfreezeScreen
+          configuration={targetContest.configuration}
+          snapshot={unfreezeSnapshot}
         />
       </main>
     );

@@ -16,6 +16,7 @@ interface MainMenuScreenProps {
   contests: ManagedContest[];
   onCreateContest: () => void;
   onOpenScoreboard: (contest: ManagedContest) => void;
+  onOpenUnfreeze: (contest: ManagedContest) => void;
   onEditContest: (contest: ManagedContest) => void;
   onDeleteContest: (contest: ManagedContest) => void;
 }
@@ -46,6 +47,7 @@ export function MainMenuScreen({
   contests,
   onCreateContest,
   onOpenScoreboard,
+  onOpenUnfreeze,
   onEditContest,
   onDeleteContest
 }: MainMenuScreenProps) {
@@ -133,6 +135,7 @@ export function MainMenuScreen({
             bucket="current"
             contests={groupedContests.current}
             onOpenScoreboard={onOpenScoreboard}
+            onOpenUnfreeze={onOpenUnfreeze}
             onEditContest={onEditContest}
             onDeleteContest={onDeleteContest}
           />
@@ -140,6 +143,7 @@ export function MainMenuScreen({
             bucket="future"
             contests={groupedContests.future}
             onOpenScoreboard={onOpenScoreboard}
+            onOpenUnfreeze={onOpenUnfreeze}
             onEditContest={onEditContest}
             onDeleteContest={onDeleteContest}
           />
@@ -147,6 +151,7 @@ export function MainMenuScreen({
             bucket="past"
             contests={groupedContests.past}
             onOpenScoreboard={onOpenScoreboard}
+            onOpenUnfreeze={onOpenUnfreeze}
             onEditContest={onEditContest}
             onDeleteContest={onDeleteContest}
           />
@@ -160,6 +165,7 @@ interface ContestSectionProps {
   bucket: ContestTimelineBucket;
   contests: ManagedContest[];
   onOpenScoreboard: (contest: ManagedContest) => void;
+  onOpenUnfreeze: (contest: ManagedContest) => void;
   onEditContest: (contest: ManagedContest) => void;
   onDeleteContest: (contest: ManagedContest) => void;
 }
@@ -168,6 +174,7 @@ function ContestSection({
   bucket,
   contests,
   onOpenScoreboard,
+  onOpenUnfreeze,
   onEditContest,
   onDeleteContest
 }: ContestSectionProps) {
@@ -226,6 +233,15 @@ function ContestSection({
                 </button>
 
                 <div className="menu-contest-row__actions">
+                  {bucket === "past" ? (
+                    <button
+                      className="secondary-button menu-action-button"
+                      type="button"
+                      onClick={() => onOpenUnfreeze(contest)}
+                    >
+                      Unfreeze
+                    </button>
+                  ) : null}
                   <button
                     className="secondary-button menu-action-button"
                     type="button"

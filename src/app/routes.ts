@@ -1,6 +1,7 @@
 const SCOREBOARD_BASE_PATH = "/scoreboard";
+const UNFREEZE_BASE_PATH = "/unfreeze";
 
-export const HOME_PATH = "/";
+export const HOME_PATH = "/home";
 export const CREATE_CONTEST_PATH = "/create_contest";
 export const SCOREBOARD_PREVIEW_CONTEST_ID = "preview";
 
@@ -20,17 +21,28 @@ type ScoreboardRoute = {
   contestId: string;
 };
 
+type UnfreezeRoute = {
+  screen: "unfreeze";
+  path: string;
+  contestId: string;
+};
+
 type NotFoundRoute = {
   screen: "not-found";
   path: string;
 };
 
-export type AppRoute = HomeRoute | SetupRoute | ScoreboardRoute | NotFoundRoute;
+export type AppRoute =
+  | HomeRoute
+  | SetupRoute
+  | ScoreboardRoute
+  | UnfreezeRoute
+  | NotFoundRoute;
 
 export function parseAppRoute(pathname: string): AppRoute {
   const normalizedPath = normalizePathname(pathname);
 
-  if (normalizedPath === HOME_PATH) {
+  if (normalizedPath === "/" || normalizedPath === HOME_PATH) {
     return {
       screen: "home",
       path: HOME_PATH
@@ -66,6 +78,25 @@ export function parseAppRoute(pathname: string): AppRoute {
     };
   }
 
+  if (firstSegment?.toLowerCase() === "unfreeze") {
+    if (remainingSegments.length > 0) {
+      return {
+        screen: "not-found",
+        path: normalizedPath
+      };
+    }
+
+    const contestId =
+      normalizeContestId(secondSegment ? safeDecodeURIComponent(secondSegment) : "") ??
+      SCOREBOARD_PREVIEW_CONTEST_ID;
+
+    return {
+      screen: "unfreeze",
+      contestId,
+      path: buildUnfreezePath(contestId)
+    };
+  }
+
   return {
     screen: "not-found",
     path: normalizedPath
@@ -77,6 +108,13 @@ export function buildScoreboardPath(contestId: string): string {
     normalizeContestId(contestId) ?? SCOREBOARD_PREVIEW_CONTEST_ID;
 
   return `${SCOREBOARD_BASE_PATH}/${encodeURIComponent(normalizedContestId)}`;
+}
+
+export function buildUnfreezePath(contestId: string): string {
+  const normalizedContestId =
+    normalizeContestId(contestId) ?? SCOREBOARD_PREVIEW_CONTEST_ID;
+
+  return `${UNFREEZE_BASE_PATH}/${encodeURIComponent(normalizedContestId)}`;
 }
 
 export function createContestIdCandidate(value: string): string | null {
