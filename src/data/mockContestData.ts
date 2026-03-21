@@ -2,332 +2,140 @@ import {
   ContestSnapshot,
   ProblemCellState,
   ProblemMeta,
+  RecentSubmission,
+  SolvedProblemCell,
   TeamStanding
 } from "../domain/types";
 
-function untouched(problem: ProblemMeta): ProblemCellState {
-  return {
-    kind: "untouched",
-    problemId: problem.id,
-    problemLabel: problem.label
-  };
+interface TeamBlueprint {
+  name: string;
+  organization: string;
+  movement?: number;
 }
 
-function queued(
-  problem: ProblemMeta,
-  wrongAttempts: number,
-  frozenSubmissionCount: number
-): ProblemCellState {
-  return {
-    kind: "queued",
-    problemId: problem.id,
-    problemLabel: problem.label,
-    wrongAttempts,
-    frozenSubmissionCount
-  };
-}
+type CellRecipe =
+  | { kind: "untouched" }
+  | { kind: "failed"; wrongAttempts: number }
+  | {
+      kind: "queued" | "frozen-pending";
+      wrongAttempts: number;
+      frozenSubmissionCount: number;
+    }
+  | { kind: "solved"; wrongAttempts: number; penalty: number };
 
-function frozenPending(
-  problem: ProblemMeta,
-  wrongAttempts: number,
-  frozenSubmissionCount: number
-): ProblemCellState {
-  return {
-    kind: "frozen-pending",
-    problemId: problem.id,
-    problemLabel: problem.label,
-    wrongAttempts,
-    frozenSubmissionCount
-  };
-}
-
-function failed(problem: ProblemMeta, wrongAttempts: number): ProblemCellState {
-  return {
-    kind: "failed",
-    problemId: problem.id,
-    problemLabel: problem.label,
-    wrongAttempts
-  };
-}
-
-function solved(
-  problem: ProblemMeta,
-  wrongAttempts: number,
-  penalty: number,
-  firstToSolve = false
-): ProblemCellState {
-  return {
-    kind: "solved",
-    problemId: problem.id,
-    problemLabel: problem.label,
-    wrongAttempts,
-    penalty,
-    firstToSolve
-  };
-}
-
-const problems: ProblemMeta[] = [
-  { id: "A", label: "A", color: "#f5f7fb" },
-  { id: "B", label: "B", color: "#ff9326" },
-  { id: "C", label: "C", color: "#ff5d4d" },
-  { id: "D", label: "D", color: "#ffde3c" },
-  { id: "E", label: "E", color: "#a8ff35" },
-  { id: "F", label: "F", color: "#34db64" },
-  { id: "G", label: "G", color: "#2452ff" },
-  { id: "H", label: "H", color: "#34d6ff" },
-  { id: "I", label: "I", color: "#f845ff" },
-  { id: "J", label: "J", color: "#a51bda" },
-  { id: "K", label: "K", color: "#5aff4b" },
-  { id: "L", label: "L", color: "#ffd35c" }
+const BALLOON_COLORS = [
+  "#f5f7fb",
+  "#ff9326",
+  "#ff5d4d",
+  "#ffde3c",
+  "#a8ff35",
+  "#34db64",
+  "#2452ff",
+  "#34d6ff",
+  "#f845ff",
+  "#a51bda",
+  "#5aff4b",
+  "#ffd35c"
 ];
 
-function buildTeam(
-  rank: number,
-  name: string,
-  organization: string,
-  solvedCount: number,
-  penalty: number,
-  marked: boolean,
-  pendingProblemLabels: string[],
-  cells: ProblemCellState[],
-  movement?: number
-): TeamStanding {
-  return {
-    id: name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-    rank,
-    name,
-    organization,
-    solved: solvedCount,
-    penalty,
-    marked,
-    movement,
-    pendingProblemLabels,
-    problems: cells
-  };
+const TEAM_BLUEPRINTS: TeamBlueprint[] = [
+  { name: "Ooga Booga", organization: "UFMG", movement: 1 },
+  { name: "Testigos de German", organization: "UP GDL", movement: 2 },
+  { name: "Helicoptero", organization: "UNC", movement: 1 },
+  { name: "E so fazer", organization: "UnB" },
+  { name: "Los Tralalelitos dicen FLAMENGOOO", organization: "UnB", movement: -1 },
+  { name: "Los Catastroficos", organization: "UBA", movement: 1 },
+  { name: "e sempre o XOR", organization: "UDESC", movement: -2 },
+  { name: "3f9f", organization: "UFCG" },
+  { name: "Corman", organization: "UBA", movement: -1 },
+  { name: "hmmmmmmmmmmm?", organization: "ESCOM IPN" },
+  { name: "para la pda elegimos wf", organization: "UNR", movement: 1 },
+  { name: "las4s e pelados", organization: "UFPE" }
+];
+
+const problems: ProblemMeta[] = Array.from({ length: 26 }, (_, index) =>
+  createProblem(index)
+);
+
+const cellRecipes: CellRecipe[][] = TEAM_BLUEPRINTS.map(() =>
+  problems.map(() => createUntouchedRecipe())
+);
+
+for (let problemIndex = 0; problemIndex < problems.length; problemIndex += 1) {
+  const topGroupIndex = problemIndex % 4;
+  const firstSolverTeamIndex = topGroupIndex;
+  const extraTopSolverTeamIndex = (topGroupIndex + 1) % 4;
+  const middleSolverTeamIndex = 4 + topGroupIndex;
+  const middlePendingTeamIndex = 4 + ((topGroupIndex + 2) % 4);
+  const middleFailedTeamIndex = 4 + ((topGroupIndex + 1) % 4);
+  const lowerSolverTeamIndex = 8 + topGroupIndex;
+  const lowerPendingTeamIndex = 8 + ((topGroupIndex + 1) % 4);
+  const lowerFailedTeamIndex = 8 + ((topGroupIndex + 3) % 4);
+  const firstPenalty = 18 + problemIndex * 7 + (problemIndex % 3) * 2;
+
+  setCellRecipe(
+    firstSolverTeamIndex,
+    problemIndex,
+    createSolvedRecipe(problemIndex % 3, firstPenalty)
+  );
+  setCellRecipe(
+    middleSolverTeamIndex,
+    problemIndex,
+    createSolvedRecipe(1 + ((problemIndex + 1) % 3), firstPenalty + 34 + (problemIndex % 5) * 5)
+  );
+  setCellRecipe(
+    lowerSolverTeamIndex,
+    problemIndex,
+    createSolvedRecipe(1 + (problemIndex % 2), firstPenalty + 76 + (problemIndex % 4) * 8)
+  );
+
+  if (problemIndex % 2 === 1) {
+    setCellRecipe(
+      extraTopSolverTeamIndex,
+      problemIndex,
+      createSolvedRecipe(1 + ((problemIndex + 2) % 3), firstPenalty + 19 + (problemIndex % 4) * 4)
+    );
+  }
+
+  setCellRecipe(
+    middlePendingTeamIndex,
+    problemIndex,
+    problemIndex % 2 === 0
+      ? createQueuedRecipe(problemIndex % 3, 1 + (problemIndex % 3))
+      : createFrozenPendingRecipe(1 + (problemIndex % 2), 2 + (problemIndex % 3))
+  );
+  setCellRecipe(
+    lowerPendingTeamIndex,
+    problemIndex,
+    problemIndex % 2 === 0
+      ? createFrozenPendingRecipe(problemIndex % 2, 2 + (problemIndex % 4))
+      : createQueuedRecipe(1 + (problemIndex % 3), 1 + (problemIndex % 2))
+  );
+  setCellRecipe(
+    lowerFailedTeamIndex,
+    problemIndex,
+    createFailedRecipe(1 + (problemIndex % 4))
+  );
+
+  if (problemIndex % 3 === 0) {
+    setCellRecipe(
+      middleFailedTeamIndex,
+      problemIndex,
+      createFailedRecipe(2 + (problemIndex % 3))
+    );
+  }
 }
 
-const teams: TeamStanding[] = [
-  buildTeam(1, "Ooga Booga", "UFMG", 8, 786, true, [], [
-    solved(problems[0], 0, 82, true),
-    solved(problems[1], 1, 36),
-    untouched(problems[2]),
-    untouched(problems[3]),
-    solved(problems[4], 0, 113, true),
-    solved(problems[5], 0, 96),
-    solved(problems[6], 0, 140),
-    untouched(problems[7]),
-    solved(problems[8], 1, 150, true),
-    solved(problems[9], 0, 79),
-    solved(problems[10], 1, 227),
-    untouched(problems[11])
-  ]),
-  buildTeam(2, "Testigos de German", "UP GDL", 6, 461, false, ["I", "K"], [
-    solved(problems[0], 0, 128),
-    solved(problems[1], 1, 40),
-    untouched(problems[2]),
-    untouched(problems[3]),
-    solved(problems[4], 0, 14),
-    solved(problems[5], 0, 99),
-    solved(problems[6], 0, 160),
-    untouched(problems[7]),
-    queued(problems[8], 0, 1),
-    solved(problems[9], 0, 20),
-    frozenPending(problems[10], 0, 2),
-    untouched(problems[11])
-  ]),
-  buildTeam(3, "Helicoptero", "UNC", 6, 474, false, ["H", "I", "K"], [
-    solved(problems[0], 1, 75, true),
-    solved(problems[1], 1, 76),
-    untouched(problems[2]),
-    untouched(problems[3]),
-    solved(problems[4], 0, 14),
-    solved(problems[5], 1, 106),
-    untouched(problems[6]),
-    frozenPending(problems[7], 1, 2),
-    queued(problems[8], 0, 1),
-    solved(problems[9], 0, 24),
-    frozenPending(problems[10], 0, 3),
-    untouched(problems[11])
-  ]),
-  buildTeam(4, "E so fazer", "UnB", 6, 580, false, ["K"], [
-    solved(problems[0], 1, 172),
-    solved(problems[1], 1, 40),
-    untouched(problems[2]),
-    untouched(problems[3]),
-    solved(problems[4], 0, 18),
-    solved(problems[5], 0, 76),
-    untouched(problems[6]),
-    untouched(problems[7]),
-    solved(problems[8], 0, 230),
-    solved(problems[9], 0, 24),
-    frozenPending(problems[10], 0, 3),
-    untouched(problems[11])
-  ]),
-  buildTeam(
-    5,
-    "Los Tralalelitos dicen FLAMENGOOO",
-    "UnB",
-    6,
-    631,
-    false,
-    ["K"],
-    [
-      solved(problems[0], 2, 198),
-      solved(problems[1], 1, 43),
-      untouched(problems[2]),
-      untouched(problems[3]),
-      solved(problems[4], 0, 10),
-      solved(problems[5], 1, 84),
-      untouched(problems[6]),
-      untouched(problems[7]),
-      solved(problems[8], 0, 218),
-      solved(problems[9], 0, 18),
-      frozenPending(problems[10], 0, 4),
-      untouched(problems[11])
-    ],
-    2
-  ),
-  buildTeam(6, "Los Catastróficos", "UBA", 6, 774, false, ["G"], [
-    solved(problems[0], 1, 231),
-    solved(problems[1], 0, 91),
-    untouched(problems[2]),
-    untouched(problems[3]),
-    solved(problems[4], 0, 14),
-    solved(problems[5], 1, 202),
-    frozenPending(problems[6], 0, 5),
-    untouched(problems[7]),
-    solved(problems[8], 0, 154),
-    solved(problems[9], 0, 42),
-    untouched(problems[10]),
-    untouched(problems[11])
-  ], 1),
-  buildTeam(7, "e sempre o XOR", "UDESC", 5, 397, false, ["A", "H"], [
-    frozenPending(problems[0], 2, 3),
-    solved(problems[1], 0, 35),
-    untouched(problems[2]),
-    failed(problems[3], 3),
-    solved(problems[4], 0, 16),
-    solved(problems[5], 0, 167),
-    solved(problems[6], 1, 88),
-    frozenPending(problems[7], 0, 4),
-    untouched(problems[8]),
-    solved(problems[9], 0, 11),
-    untouched(problems[10]),
-    untouched(problems[11])
-  ], 3),
-  buildTeam(8, "3f9f", "UFCG", 5, 397, false, ["A", "I"], [
-    frozenPending(problems[0], 2, 3),
-    solved(problems[1], 0, 22),
-    untouched(problems[2]),
-    untouched(problems[3]),
-    solved(problems[4], 0, 16),
-    solved(problems[5], 1, 120),
-    solved(problems[6], 1, 173),
-    untouched(problems[7]),
-    frozenPending(problems[8], 1, 3),
-    solved(problems[9], 0, 26),
-    untouched(problems[10]),
-    untouched(problems[11])
-  ]),
-  buildTeam(9, "Corman", "UBA", 5, 430, false, ["A", "I"], [
-    frozenPending(problems[0], 1, 5),
-    solved(problems[1], 0, 48),
-    untouched(problems[2]),
-    untouched(problems[3]),
-    solved(problems[4], 0, 15),
-    solved(problems[5], 1, 131),
-    untouched(problems[6]),
-    untouched(problems[7]),
-    queued(problems[8], 0, 1),
-    solved(problems[9], 0, 23),
-    solved(problems[10], 1, 173),
-    untouched(problems[11])
-  ]),
-  buildTeam(10, "hmmmmmmmmmmm?", "ESCOM IPN", 5, 449, false, ["C"], [
-    solved(problems[0], 1, 204),
-    solved(problems[1], 0, 60),
-    frozenPending(problems[2], 0, 5),
-    untouched(problems[3]),
-    solved(problems[4], 0, 19),
-    solved(problems[5], 0, 101),
-    untouched(problems[6]),
-    untouched(problems[7]),
-    untouched(problems[8]),
-    solved(problems[9], 0, 25),
-    untouched(problems[10]),
-    untouched(problems[11])
-  ]),
-  buildTeam(11, "para la pda elegimos wf", "UNR", 5, 462, false, ["I"], [
-    solved(problems[0], 0, 230),
-    solved(problems[1], 0, 80),
-    untouched(problems[2]),
-    untouched(problems[3]),
-    solved(problems[4], 0, 24),
-    solved(problems[5], 0, 89),
-    untouched(problems[6]),
-    untouched(problems[7]),
-    frozenPending(problems[8], 0, 2),
-    solved(problems[9], 0, 19),
-    untouched(problems[10]),
-    untouched(problems[11])
-  ]),
-  buildTeam(12, "las4s e pelados", "UFPE", 5, 482, false, ["L"], [
-    solved(problems[0], 1, 233),
-    solved(problems[1], 0, 62),
-    untouched(problems[2]),
-    untouched(problems[3]),
-    solved(problems[4], 0, 76, true),
-    solved(problems[5], 0, 138),
-    untouched(problems[6]),
-    untouched(problems[7]),
-    untouched(problems[8]),
-    solved(problems[9], 0, 23),
-    untouched(problems[10]),
-    frozenPending(problems[11], 0, 5)
-  ]),
-  buildTeam(13, "Red-Black Tree", "UNR", 5, 551, false, ["G", "L"], [
-    untouched(problems[0]),
-    solved(problems[1], 0, 135),
-    untouched(problems[2]),
-    untouched(problems[3]),
-    solved(problems[4], 0, 16),
-    solved(problems[5], 0, 155),
-    frozenPending(problems[6], 0, 2),
-    untouched(problems[7]),
-    solved(problems[8], 0, 216),
-    solved(problems[9], 0, 29),
-    untouched(problems[10]),
-    frozenPending(problems[11], 0, 5)
-  ]),
-  buildTeam(14, "SaleEnOdeUno", "UNI FIIS", 5, 619, false, ["A", "I"], [
-    queued(problems[0], 0, 1),
-    solved(problems[1], 0, 103),
-    untouched(problems[2]),
-    untouched(problems[3]),
-    solved(problems[4], 1, 36),
-    solved(problems[5], 2, 156),
-    solved(problems[6], 0, 205),
-    untouched(problems[7]),
-    frozenPending(problems[8], 0, 2),
-    solved(problems[9], 1, 39),
-    untouched(problems[10]),
-    untouched(problems[11])
-  ]),
-  buildTeam(15, "Igloo Zone", "UP Bonaterra", 5, 624, false, ["A", "F"], [
-    frozenPending(problems[0], 0, 2),
-    solved(problems[1], 2, 192),
-    untouched(problems[2]),
-    untouched(problems[3]),
-    solved(problems[4], 0, 16),
-    frozenPending(problems[5], 3, 2),
-    solved(problems[6], 0, 161),
-    untouched(problems[7]),
-    solved(problems[8], 0, 204),
-    solved(problems[9], 0, 11),
-    untouched(problems[10]),
-    untouched(problems[11])
-  ])
-];
+const teams = rankTeams(
+  applyFirstToSolveFlags(
+    TEAM_BLUEPRINTS.map((team, teamIndex) =>
+      buildTeam(team, teamIndex, cellRecipes[teamIndex])
+    )
+  )
+);
+const recentSubmissions = buildRecentSubmissions(teams);
+
+validateMockStandings(teams, problems);
 
 export const mockContestSnapshot: ContestSnapshot = {
   contestName: "Revelio",
@@ -337,71 +145,329 @@ export const mockContestSnapshot: ContestSnapshot = {
   freezeLabel: "Frozen during the final hour",
   problems,
   teams,
-  updatedAtLabel: "Updated from mock contest feed",
-  recentSubmissions: [
-    {
-      id: "sub-1",
-      contestMinute: 289,
-      teamName: "SaleEnOdeUno",
-      problemLabel: "A",
-      summary: "? +0",
-      kind: "queued"
-    },
-    {
-      id: "sub-2",
-      contestMinute: 287,
-      teamName: "hmmmmmmmmmmm?",
-      problemLabel: "A",
-      summary: "(8) +1",
-      kind: "frozen-pending"
-    },
-    {
-      id: "sub-3",
-      contestMinute: 286,
-      teamName: "Los Catastróficos",
-      problemLabel: "G",
-      summary: "(5) +0",
-      kind: "frozen-pending"
-    },
-    {
-      id: "sub-4",
-      contestMinute: 284,
-      teamName: "E so fazer",
-      problemLabel: "K",
-      summary: "(3) +0",
-      kind: "frozen-pending"
-    },
-    {
-      id: "sub-5",
-      contestMinute: 283,
-      teamName: "Red-Black Tree",
-      problemLabel: "L",
-      summary: "(5) +0",
-      kind: "frozen-pending"
-    },
-    {
-      id: "sub-6",
-      contestMinute: 281,
-      teamName: "Igloo Zone",
-      problemLabel: "A",
-      summary: "(2) +0",
-      kind: "frozen-pending"
-    },
-    {
-      id: "sub-7",
-      contestMinute: 280,
-      teamName: "Corman",
-      problemLabel: "A",
-      summary: "(5) +1",
-      kind: "frozen-pending"
-    },
-    {
-      id: "sub-8",
-      contestMinute: 279,
-      teamName: "las4s e pelados",
-      problemLabel: "L",
-      summary: "(5) +0",
-      kind: "frozen-pending"
-    }
-  ]
+  updatedAtLabel: "Updated from the full A-Z mock contest feed",
+  recentSubmissions
 };
+
+function createProblem(index: number): ProblemMeta {
+  const label = getProblemLabel(index);
+
+  return {
+    id: label,
+    label,
+    color: BALLOON_COLORS[index % BALLOON_COLORS.length]
+  };
+}
+
+function getProblemLabel(index: number): string {
+  return String.fromCharCode(65 + index);
+}
+
+function createUntouchedRecipe(): CellRecipe {
+  return { kind: "untouched" };
+}
+
+function createFailedRecipe(wrongAttempts: number): CellRecipe {
+  return {
+    kind: "failed",
+    wrongAttempts
+  };
+}
+
+function createQueuedRecipe(
+  wrongAttempts: number,
+  frozenSubmissionCount: number
+): CellRecipe {
+  return {
+    kind: "queued",
+    wrongAttempts,
+    frozenSubmissionCount
+  };
+}
+
+function createFrozenPendingRecipe(
+  wrongAttempts: number,
+  frozenSubmissionCount: number
+): CellRecipe {
+  return {
+    kind: "frozen-pending",
+    wrongAttempts,
+    frozenSubmissionCount
+  };
+}
+
+function createSolvedRecipe(wrongAttempts: number, penalty: number): CellRecipe {
+  return {
+    kind: "solved",
+    wrongAttempts,
+    penalty
+  };
+}
+
+function setCellRecipe(
+  teamIndex: number,
+  problemIndex: number,
+  recipe: CellRecipe
+) {
+  cellRecipes[teamIndex][problemIndex] = recipe;
+}
+
+function buildTeam(
+  team: TeamBlueprint,
+  teamIndex: number,
+  recipes: CellRecipe[]
+): TeamStanding {
+  const problemCells = recipes.map((recipe, problemIndex) =>
+    buildProblemCell(problems[problemIndex], recipe)
+  );
+
+  return {
+    id: buildTeamId(team.name),
+    rank: 0,
+    name: team.name,
+    organization: team.organization,
+    solved: countSolvedProblems(problemCells),
+    penalty: calculateTeamPenalty(problemCells),
+    marked: teamIndex === 0,
+    movement: team.movement,
+    pendingProblemLabels: collectPendingProblemLabels(problemCells),
+    problems: problemCells
+  };
+}
+
+function buildProblemCell(problem: ProblemMeta, recipe: CellRecipe): ProblemCellState {
+  switch (recipe.kind) {
+    case "untouched":
+      return {
+        kind: "untouched",
+        problemId: problem.id,
+        problemLabel: problem.label
+      };
+    case "failed":
+      return {
+        kind: "failed",
+        problemId: problem.id,
+        problemLabel: problem.label,
+        wrongAttempts: recipe.wrongAttempts
+      };
+    case "queued":
+    case "frozen-pending":
+      return {
+        kind: recipe.kind,
+        problemId: problem.id,
+        problemLabel: problem.label,
+        wrongAttempts: recipe.wrongAttempts,
+        frozenSubmissionCount: recipe.frozenSubmissionCount
+      };
+    case "solved":
+      return {
+        kind: "solved",
+        problemId: problem.id,
+        problemLabel: problem.label,
+        wrongAttempts: recipe.wrongAttempts,
+        penalty: recipe.penalty,
+        firstToSolve: false
+      };
+  }
+}
+
+function applyFirstToSolveFlags(teams: TeamStanding[]): TeamStanding[] {
+  const nextTeams = teams.map((team) => ({
+    ...team,
+    problems: [...team.problems]
+  }));
+
+  for (let problemIndex = 0; problemIndex < problems.length; problemIndex += 1) {
+    const solvedCells = nextTeams
+      .map((team, teamIndex) => {
+        const cell = team.problems[problemIndex];
+
+        return isSolvedCell(cell)
+          ? {
+              teamIndex,
+              cell
+            }
+          : null;
+      })
+      .filter((entry): entry is { teamIndex: number; cell: SolvedProblemCell } =>
+        entry !== null
+      )
+      .sort(
+        (left, right) =>
+          left.cell.penalty - right.cell.penalty || left.teamIndex - right.teamIndex
+      );
+
+    if (solvedCells.length === 0) {
+      throw new Error(
+        `The mock contest must include at least one solve for problem ${problems[problemIndex].label}.`
+      );
+    }
+
+    const firstToSolveTeamIndex = solvedCells[0].teamIndex;
+
+    solvedCells.forEach(({ teamIndex, cell }) => {
+      nextTeams[teamIndex].problems[problemIndex] = {
+        ...cell,
+        firstToSolve: teamIndex === firstToSolveTeamIndex
+      };
+    });
+  }
+
+  return nextTeams.map((team) => ({
+    ...team,
+    solved: countSolvedProblems(team.problems),
+    penalty: calculateTeamPenalty(team.problems),
+    pendingProblemLabels: collectPendingProblemLabels(team.problems)
+  }));
+}
+
+function rankTeams(teams: TeamStanding[]): TeamStanding[] {
+  const sortedTeams = [...teams].sort(
+    (left, right) =>
+      right.solved - left.solved ||
+      left.penalty - right.penalty ||
+      left.name.localeCompare(right.name)
+  );
+  let currentRank = 0;
+  let previousSolved = Number.NaN;
+  let previousPenalty = Number.NaN;
+
+  return sortedTeams.map((team, index) => {
+    if (team.solved !== previousSolved || team.penalty !== previousPenalty) {
+      currentRank = index + 1;
+      previousSolved = team.solved;
+      previousPenalty = team.penalty;
+    }
+
+    return {
+      ...team,
+      rank: currentRank,
+      marked: index === 0
+    };
+  });
+}
+
+function buildRecentSubmissions(teams: TeamStanding[]): RecentSubmission[] {
+  const pendingEntries = teams.flatMap((team) =>
+    team.problems.flatMap((cell) => {
+      if (!isPendingCell(cell)) {
+        return [];
+      }
+
+      return [
+        {
+          teamName: team.name,
+          problemLabel: cell.problemLabel,
+          summary: formatPendingSummary(cell),
+          kind: cell.kind
+        }
+      ];
+    })
+  );
+
+  return pendingEntries.slice(0, 20).map((entry, index) => ({
+    id: `sub-${index + 1}`,
+    contestMinute: 299 - index * 3,
+    teamName: entry.teamName,
+    problemLabel: entry.problemLabel,
+    summary: entry.summary,
+    kind: entry.kind
+  }));
+}
+
+function formatPendingSummary(
+  cell: Extract<ProblemCellState, { kind: "queued" | "frozen-pending" }>
+): string {
+  const mainLabel =
+    cell.frozenSubmissionCount > 1 ? `(${cell.frozenSubmissionCount})` : "?";
+
+  return `${mainLabel} +${cell.wrongAttempts}`;
+}
+
+function validateMockStandings(teams: TeamStanding[], problems: ProblemMeta[]) {
+  let hasPending = false;
+  let hasFailed = false;
+  let hasUntouched = false;
+
+  problems.forEach((problem, problemIndex) => {
+    const solvedCells = teams
+      .map((team) => team.problems[problemIndex])
+      .filter(isSolvedCell);
+
+    if (solvedCells.length < 2) {
+      throw new Error(
+        `Problem ${problem.label} needs at least two solves so both star and round balloons appear in the preview.`
+      );
+    }
+
+    const firstToSolveCells = solvedCells.filter((cell) => cell.firstToSolve);
+
+    if (firstToSolveCells.length !== 1) {
+      throw new Error(
+        `Problem ${problem.label} must have exactly one first-to-solve balloon.`
+      );
+    }
+
+    const earliestPenalty = Math.min(...solvedCells.map((cell) => cell.penalty));
+
+    if (firstToSolveCells[0].penalty !== earliestPenalty) {
+      throw new Error(
+        `Problem ${problem.label} has an invalid first-to-solve assignment.`
+      );
+    }
+  });
+
+  teams.forEach((team) => {
+    team.problems.forEach((cell) => {
+      if (isPendingCell(cell)) {
+        hasPending = true;
+      }
+
+      if (cell.kind === "failed") {
+        hasFailed = true;
+      }
+
+      if (cell.kind === "untouched") {
+        hasUntouched = true;
+      }
+    });
+  });
+
+  if (!hasPending || !hasFailed || !hasUntouched) {
+    throw new Error(
+      "The mock contest must include pending, failed, and untouched submissions."
+    );
+  }
+}
+
+function countSolvedProblems(problemCells: ProblemCellState[]): number {
+  return problemCells.filter(isSolvedCell).length;
+}
+
+function calculateTeamPenalty(problemCells: ProblemCellState[]): number {
+  return problemCells.reduce(
+    (totalPenalty, cell) =>
+      totalPenalty + (isSolvedCell(cell) ? cell.penalty : 0),
+    0
+  );
+}
+
+function collectPendingProblemLabels(problemCells: ProblemCellState[]): string[] {
+  return problemCells
+    .filter(isPendingCell)
+    .map((cell) => cell.problemLabel);
+}
+
+function buildTeamId(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
+function isSolvedCell(cell: ProblemCellState): cell is SolvedProblemCell {
+  return cell.kind === "solved";
+}
+
+function isPendingCell(
+  cell: ProblemCellState
+): cell is Extract<ProblemCellState, { kind: "queued" | "frozen-pending" }> {
+  return cell.kind === "queued" || cell.kind === "frozen-pending";
+}

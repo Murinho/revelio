@@ -1,0 +1,49 @@
+.unfreeze-shell {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 1rem;
+  width: max-content;
+  min-width: max-content;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.unfreeze-header {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.unfreeze-header__title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: clamp(2rem, 3vw, 3rem);
+  line-height: 1;
+}
+
+.unfreeze-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.unfreeze-controls__primary:disabled,
+.unfreeze-controls .secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
+  box-shadow: none;
+}
+
+@media (max-width: 920px) {
+  .unfreeze-shell {
+    width: 100%;
+    min-width: 0;
+    padding: 0.85rem;
+  }
+
+  .unfreeze-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
