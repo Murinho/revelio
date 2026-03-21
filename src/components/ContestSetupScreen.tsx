@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import {
   ContestConfiguration,
@@ -33,10 +34,12 @@ export function ContestSetupScreen({
   onBack,
   onProceed
 }: ContestSetupScreenProps) {
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const problemCount = configuration.problems.length;
   const hasCredentials =
     configuration.codeforces.apiKey.trim().length > 0 &&
     configuration.codeforces.apiSecret.trim().length > 0;
+  const shareableScoreboardUrl = `${window.location.origin}${shareableScoreboardPath}`;
   const scoreboardStatus = scoreboardError
     ? "The scoreboard preview feed is unavailable right now, but the setup state is ready for a future backend connection."
     : isScoreboardLoading
@@ -112,6 +115,19 @@ export function ContestSetupScreen({
     onProceed();
   }
 
+  async function handleCopyScoreboardUrl() {
+    try {
+      await navigator.clipboard.writeText(shareableScoreboardUrl);
+      setCopyState("copied");
+    } catch {
+      setCopyState("error");
+    }
+
+    window.setTimeout(() => {
+      setCopyState("idle");
+    }, 1800);
+  }
+
   return (
     <div className="setup-layout">
       <aside className="setup-sidebar">
@@ -175,9 +191,53 @@ export function ContestSetupScreen({
             </div>
             <div className="setup-summary-row">
               <span className="setup-summary-row__label">Shareable Scoreboard</span>
-              <strong className="setup-summary-row__value setup-summary-row__value--mono">
-                {shareableScoreboardPath}
-              </strong>
+              <div className="setup-summary-row__actions">
+                <strong className="setup-summary-row__value setup-summary-row__value--mono">
+                  {shareableScoreboardUrl}
+                </strong>
+                <button
+                  className="secondary-button setup-copy-button"
+                  type="button"
+                  onClick={handleCopyScoreboardUrl}
+                  aria-label={
+                    copyState === "copied"
+                      ? "Scoreboard URL copied"
+                      : copyState === "error"
+                        ? "Retry copying scoreboard URL"
+                        : "Copy scoreboard URL"
+                  }
+                  title={
+                    copyState === "copied"
+                      ? "Copied"
+                      : copyState === "error"
+                        ? "Retry"
+                        : "Copy URL"
+                  }
+                >
+                  <svg
+                    className="setup-copy-button__icon"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M9 9.75A2.25 2.25 0 0 1 11.25 7.5h7.5A2.25 2.25 0 0 1 21 9.75v9A2.25 2.25 0 0 1 18.75 21h-7.5A2.25 2.25 0 0 1 9 18.75v-9Z"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="1.7"
+                    />
+                    <path
+                      d="M15 7.5V5.25A2.25 2.25 0 0 0 12.75 3h-7.5A2.25 2.25 0 0 0 3 5.25v9A2.25 2.25 0 0 0 5.25 16.5H9"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="1.7"
+                    />
+                  </svg>
+                </button>
+              </div>
             </div>
             <div className="setup-summary-row">
               <span className="setup-summary-row__label">Codeforces Access</span>
