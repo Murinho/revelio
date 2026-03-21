@@ -23,6 +23,7 @@ export interface ContestConfiguration {
 
 export const MIN_PROBLEM_COUNT = 1;
 export const MAX_PROBLEM_COUNT = 26;
+export const DEFAULT_PROBLEM_COUNT = 12;
 
 const DEFAULT_BALLOON_COLORS = [
   "#f5f7fb",
@@ -46,7 +47,7 @@ export function createDefaultContestConfiguration(now = new Date()): ContestConf
     durationMinutes: 300,
     freezeDurationMinutes: 60,
     contestUrl: "",
-    problems: resizeContestProblems([], MAX_PROBLEM_COUNT),
+    problems: resizeContestProblems([], DEFAULT_PROBLEM_COUNT),
     codeforces: {
       apiKey: "",
       apiSecret: ""
