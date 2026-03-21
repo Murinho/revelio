@@ -475,10 +475,36 @@
   will-change: transform;
 }
 
+.scoreboard-table__row--active .scoreboard-table__cell {
+  background: #6a7784;
+}
+
+.scoreboard-table__row--active .scoreboard-table__cell--rank,
+.scoreboard-table__row--active .scoreboard-table__cell--team,
+.scoreboard-table__row--active .scoreboard-table__cell--score {
+  background: #758290;
+}
+
+.scoreboard-table__row--active .problem-cell {
+  filter: brightness(1.08);
+}
+
+.scoreboard-table__row--active .scoreboard-table__cell {
+  box-shadow:
+    inset 0 0 0 1px rgba(188, 219, 255, 0.22),
+    0 0 0 1px rgba(188, 219, 255, 0.08);
+}
+
 .scoreboard-table__row:hover .scoreboard-table__cell--team,
 .scoreboard-table__row:hover .scoreboard-table__cell--score,
 .scoreboard-table__row:hover .scoreboard-table__cell--rank {
   background: #46515d;
+}
+
+.scoreboard-table__row--active:hover .scoreboard-table__cell--team,
+.scoreboard-table__row--active:hover .scoreboard-table__cell--score,
+.scoreboard-table__row--active:hover .scoreboard-table__cell--rank {
+  background: #758290;
 }
 
 .scoreboard-table__cell {

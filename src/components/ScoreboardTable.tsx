@@ -8,6 +8,7 @@ interface ScoreboardTableProps {
   teams: TeamStanding[];
   focusTeamId?: string | null;
   focusRequestKey?: string | null;
+  highlightedTeamId?: string | null;
 }
 
 const ROW_REORDER_DURATION_MS = 820;
@@ -17,7 +18,8 @@ export function ScoreboardTable({
   problems,
   teams,
   focusTeamId = null,
-  focusRequestKey = null
+  focusRequestKey = null,
+  highlightedTeamId = null
 }: ScoreboardTableProps) {
   const rowElementsRef = useRef(new Map<string, HTMLTableRowElement>());
   const previousRowTopsRef = useRef(new Map<string, number>());
@@ -78,12 +80,18 @@ export function ScoreboardTable({
       return;
     }
 
-    const frameId = window.requestAnimationFrame(() => {
-      centerRowInView(rowElement);
+    let firstFrameId = 0;
+    let secondFrameId = 0;
+
+    firstFrameId = window.requestAnimationFrame(() => {
+      secondFrameId = window.requestAnimationFrame(() => {
+        centerRowInView(rowElement);
+      });
     });
 
     return () => {
-      window.cancelAnimationFrame(frameId);
+      window.cancelAnimationFrame(firstFrameId);
+      window.cancelAnimationFrame(secondFrameId);
     };
   }, [focusRequestKey, focusTeamId]);
 
@@ -138,7 +146,9 @@ export function ScoreboardTable({
             {teams.map((team) => (
               <tr
                 key={team.id}
-                className="scoreboard-table__row"
+                className={`scoreboard-table__row ${
+                  team.id === highlightedTeamId ? "scoreboard-table__row--active" : ""
+                }`.trim()}
                 ref={(rowElement) => {
                   if (rowElement) {
                     rowElementsRef.current.set(team.id, rowElement);
@@ -187,9 +197,9 @@ export function ScoreboardTable({
 }
 
 function centerRowInView(rowElement: HTMLTableRowElement) {
-  const scrollContainers = getVerticalScrollContainers(rowElement);
+  const scrollContainer = findClosestVerticalScrollContainer(rowElement);
 
-  if (scrollContainers.length === 0) {
+  if (!scrollContainer) {
     rowElement.scrollIntoView({
       behavior: "smooth",
       block: "center",
@@ -198,24 +208,20 @@ function centerRowInView(rowElement: HTMLTableRowElement) {
     return;
   }
 
-  scrollContainers.forEach((container) => {
-    const rowRect = rowElement.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
-    const targetScrollTop =
-      container.scrollTop +
-      rowRect.top -
-      containerRect.top -
-      (container.clientHeight - rowRect.height) / 2;
+  const rowTopWithinContainer =
+    getAbsoluteOffsetTop(rowElement) - getAbsoluteOffsetTop(scrollContainer);
+  const unclampedTargetScrollTop =
+    rowTopWithinContainer - (scrollContainer.clientHeight - rowElement.offsetHeight) / 2;
+  const maxScrollTop =
+    scrollContainer.scrollHeight - scrollContainer.clientHeight;
 
-    container.scrollTo({
-      top: Math.max(0, targetScrollTop),
-      behavior: "smooth"
-    });
+  scrollContainer.scrollTo({
+    top: clamp(unclampedTargetScrollTop, 0, Math.max(0, maxScrollTop)),
+    behavior: "smooth"
   });
 }
 
-function getVerticalScrollContainers(element: HTMLElement): HTMLElement[] {
-  const scrollContainers: HTMLElement[] = [];
+function findClosestVerticalScrollContainer(element: HTMLElement): HTMLElement | null {
   let currentElement = element.parentElement;
 
   while (currentElement) {
@@ -225,7 +231,7 @@ function getVerticalScrollContainers(element: HTMLElement): HTMLElement[] {
       currentElement.scrollHeight > currentElement.clientHeight + 1;
 
     if (canScrollVertically) {
-      scrollContainers.push(currentElement);
+      return currentElement;
     }
 
     currentElement = currentElement.parentElement;
@@ -235,11 +241,26 @@ function getVerticalScrollContainers(element: HTMLElement): HTMLElement[] {
 
   if (
     documentScroller instanceof HTMLElement &&
-    documentScroller.scrollHeight > documentScroller.clientHeight + 1 &&
-    !scrollContainers.includes(documentScroller)
+    documentScroller.scrollHeight > documentScroller.clientHeight + 1
   ) {
-    scrollContainers.push(documentScroller);
+    return documentScroller;
   }
 
-  return scrollContainers;
+  return null;
+}
+
+function getAbsoluteOffsetTop(element: HTMLElement): number {
+  let totalOffsetTop = 0;
+  let currentElement: HTMLElement | null = element;
+
+  while (currentElement) {
+    totalOffsetTop += currentElement.offsetTop;
+    currentElement = currentElement.offsetParent as HTMLElement | null;
+  }
+
+  return totalOffsetTop;
+}
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(Math.max(value, minimum), maximum);
 }

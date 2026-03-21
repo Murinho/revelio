@@ -22,6 +22,7 @@ export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
   const completed = revealCount >= revealEvents.length;
   const nextReveal = revealEvents[revealCount] ?? null;
   const latestReveal = revealCount > 0 ? revealEvents[revealCount - 1] : null;
+  const focusedReveal = latestReveal ?? nextReveal;
   const canStepBackward = revealCount > 0;
   const canStepForward = revealCount < revealEvents.length;
 
@@ -63,12 +64,12 @@ export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
         <h1 className="unfreeze-header__title">{snapshot.regionName}</h1>
         <div className="unfreeze-status">
           <span className="unfreeze-status__badge">
-            Submissions {revealCount}/{revealEvents.length}
+            Steps {revealCount}/{revealEvents.length}
           </span>
           <p className="unfreeze-status__text">
             {nextReveal
               ? `Next: ${formatUpcomingReveal(nextReveal)}`
-              : "All frozen problem cells have been revealed."}
+              : "All teams have been visited and all frozen submissions have been revealed."}
           </p>
           {latestReveal ? (
             <p className="unfreeze-status__text unfreeze-status__text--muted">
@@ -76,7 +77,7 @@ export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
             </p>
           ) : null}
           <p className="unfreeze-status__text unfreeze-status__text--muted">
-            Keyboard: <kbd>Right Arrow</kbd> next submission, <kbd>Left Arrow</kbd> go back.
+            Keyboard: <kbd>Right Arrow</kbd> next step, <kbd>Left Arrow</kbd> go back.
           </p>
         </div>
         <div className="unfreeze-controls">
@@ -90,7 +91,7 @@ export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
             }
             disabled={!canStepBackward}
           >
-            Go Back One Submission
+            Go Back One Step
           </button>
           <button
             className="setup-submit-panel__button unfreeze-controls__primary"
@@ -102,7 +103,7 @@ export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
             }
             disabled={!canStepForward}
           >
-            {completed ? "Unfreeze Complete" : "Unfreeze Next Submission"}
+            {completed ? "Unfreeze Complete" : "Unfreeze Next Step"}
           </button>
           <button
             className="secondary-button"
@@ -116,8 +117,11 @@ export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
       </header>
 
       <ScoreboardTable
-        focusTeamId={nextReveal?.teamId ?? null}
-        focusRequestKey={nextReveal?.id ?? null}
+        focusTeamId={focusedReveal?.teamId ?? null}
+        focusRequestKey={
+          focusedReveal ? `${revealCount}:${focusedReveal.id}` : `${revealCount}:none`
+        }
+        highlightedTeamId={focusedReveal?.teamId ?? null}
         problems={unfreezeSnapshot.problems}
         teams={unfreezeSnapshot.teams}
       />
@@ -139,6 +143,10 @@ function isEditableEventTarget(target: EventTarget | null): boolean {
 }
 
 function formatUpcomingReveal(revealEvent: UnfreezeRevealEvent): string {
+  if (revealEvent.kind === "team-visit") {
+    return `${revealEvent.teamName} will be visited and marked in place.`;
+  }
+
   if (revealEvent.verdict === "accepted") {
     return `${revealEvent.teamName} will solve problem ${revealEvent.problemLabel}.`;
   }
@@ -151,6 +159,10 @@ function formatUpcomingReveal(revealEvent: UnfreezeRevealEvent): string {
 }
 
 function formatCompletedReveal(revealEvent: UnfreezeRevealEvent): string {
+  if (revealEvent.kind === "team-visit") {
+    return `${revealEvent.teamName} was visited and marked in place.`;
+  }
+
   if (revealEvent.verdict === "accepted") {
     return `${revealEvent.teamName} solved problem ${revealEvent.problemLabel}.`;
   }

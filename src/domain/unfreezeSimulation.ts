@@ -8,14 +8,19 @@ import {
   TeamStanding
 } from "./types";
 
-export interface UnfreezeRevealEvent {
+interface BaseUnfreezeEvent {
   id: string;
+  kind: "submission" | "team-visit";
   teamId: string;
   teamName: string;
   organization?: string;
+  contestMinute: number | null;
+}
+
+export interface SubmissionRevealEvent extends BaseUnfreezeEvent {
+  kind: "submission";
   problemId: string;
   problemLabel: string;
-  contestMinute: number;
   verdict: "rejected" | "accepted";
   result: "pending" | "solved" | "failed";
   wrongAttempts: number;
@@ -23,6 +28,12 @@ export interface UnfreezeRevealEvent {
   penalty: number | null;
   nextCell: ProblemCellState;
 }
+
+export interface TeamVisitEvent extends BaseUnfreezeEvent {
+  kind: "team-visit";
+}
+
+export type UnfreezeRevealEvent = SubmissionRevealEvent | TeamVisitEvent;
 
 export function createFrozenSnapshot(snapshot: ContestSnapshot): ContestSnapshot {
   return {
@@ -82,13 +93,18 @@ export function buildUnfreezeRevealEvents(
       const problemIndex = findNextPendingProblemIndex(activeTeam);
 
       if (problemIndex < 0) {
-        teams = teams.map((team) =>
-          team.id === activeTeamId
-            ? {
-                ...team,
-                marked: true
-              }
-            : team
+        revealEvents.push(buildTeamVisitEvent(activeTeam));
+        teams = rankTeams(
+          applyFirstToSolveFlags(
+            teams.map((team) =>
+              team.id === activeTeamId
+                ? {
+                    ...team,
+                    marked: true
+                  }
+                : team
+            )
+          )
         );
         break;
       }
@@ -129,6 +145,14 @@ export function applyUnfreezeProgress(
       return;
     }
 
+    if (event.kind === "team-visit") {
+      nextTeams[teamIndex] = {
+        ...nextTeams[teamIndex],
+        marked: true
+      };
+      return;
+    }
+
     const problemIndex = nextTeams[teamIndex].problems.findIndex(
       (cell) => cell.problemId === event.problemId
     );
@@ -150,13 +174,16 @@ export function applyUnfreezeProgress(
     teams: rankedTeams,
     updatedAtLabel:
       pendingCount === 0
-        ? "All frozen submissions have been revealed"
-        : `${revealedCount} submission${revealedCount === 1 ? "" : "s"} revealed`
+        ? "All unfreeze steps have been completed"
+        : `${revealedCount} step${revealedCount === 1 ? "" : "s"} completed`
   };
 }
 
 export function countRevealedSolves(revealEvents: UnfreezeRevealEvent[]): number {
-  return revealEvents.filter((event) => event.result === "solved").length;
+  return revealEvents.filter(
+    (event): event is SubmissionRevealEvent =>
+      event.kind === "submission" && event.result === "solved"
+  ).length;
 }
 
 function buildRevealEventFromPendingCell(
@@ -164,7 +191,7 @@ function buildRevealEventFromPendingCell(
   cell: PendingProblemCell,
   teamIndex: number,
   problemIndex: number
-): UnfreezeRevealEvent {
+): SubmissionRevealEvent {
   const revealOutcome =
     cell.revealOutcome?.hiddenSubmissions.length
       ? cloneRevealOutcome(cell.revealOutcome)
@@ -202,6 +229,7 @@ function buildRevealEventFromPendingCell(
 
   return {
     id: `${team.id}-${cell.problemId}-${hiddenSubmission.id}`,
+    kind: "submission",
     teamId: team.id,
     teamName: team.name,
     organization: team.organization,
@@ -214,6 +242,17 @@ function buildRevealEventFromPendingCell(
     frozenSubmissionCount: isPendingCell(nextCell) ? nextCell.frozenSubmissionCount : 0,
     penalty: nextCell.kind === "solved" ? nextCell.penalty : null,
     nextCell
+  };
+}
+
+function buildTeamVisitEvent(team: TeamStanding): TeamVisitEvent {
+  return {
+    id: `${team.id}-team-visit`,
+    kind: "team-visit",
+    teamId: team.id,
+    teamName: team.name,
+    organization: team.organization,
+    contestMinute: null
   };
 }
 
