@@ -54,8 +54,17 @@ export function RecentSubmissionsPanel({
               </span>
               <div className="submission-list__cell submission-list__cell--team submission-list__details">
                 <p className="submission-list__team">
-                  {team ? `[${team.organization}] ${team.name}` : submission.teamName}
+                  {team
+                    ? team.organization
+                      ? `[${team.organization}] ${team.name}`
+                      : team.name
+                    : submission.teamName}
                 </p>
+                {team?.members && team.members.length > 0 ? (
+                  <p className="submission-list__team-meta">
+                    {team.members.join(" / ")}
+                  </p>
+                ) : null}
               </div>
               <span className="submission-list__cell submission-list__cell--problem submission-list__problem">
                 {submission.problemLabel}

@@ -311,6 +311,13 @@
   color: #f4f6ff;
 }
 
+.submission-list__team-meta {
+  margin: 0.12rem 0 0;
+  font-size: 0.62rem;
+  line-height: 1.1;
+  color: #c7d5e4;
+}
+
 .submission-list__problem {
   font-size: 1.2rem;
 }
@@ -465,6 +472,7 @@
 
 .scoreboard-table__row {
   cursor: default;
+  will-change: transform;
 }
 
 .scoreboard-table__row:hover .scoreboard-table__cell--team,
@@ -523,6 +531,13 @@
   font-size: 1.2rem;
   line-height: 1;
   font-weight: 800;
+}
+
+.team-cell__meta {
+  color: #c8d7e7;
+  font-size: 0.62rem;
+  line-height: 1.1;
+  letter-spacing: 0.04em;
 }
 
 .score-cell {

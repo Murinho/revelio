@@ -29,7 +29,8 @@ export interface TeamStanding {
   id: string;
   rank: number;
   name: string;
-  organization: string;
+  organization?: string;
+  members?: string[];
   solved: number;
   penalty: number;
   marked: boolean;
@@ -47,6 +48,15 @@ export interface RecentSubmission {
   kind: "queued" | "frozen-pending";
 }
 
+export interface PendingRevealOutcome {
+  result: "solved" | "failed";
+  hiddenWrongAttempts: number;
+  finalWrongAttempts: number;
+  contestMinute: number | null;
+  penalty: number | null;
+  lastHiddenContestMinute: number | null;
+}
+
 interface BaseProblemCell {
   kind: string;
   problemId: string;
@@ -61,12 +71,14 @@ export interface QueuedProblemCell extends BaseProblemCell {
   kind: "queued";
   wrongAttempts: number;
   frozenSubmissionCount: number;
+  revealOutcome?: PendingRevealOutcome;
 }
 
 export interface FrozenPendingProblemCell extends BaseProblemCell {
   kind: "frozen-pending";
   wrongAttempts: number;
   frozenSubmissionCount: number;
+  revealOutcome?: PendingRevealOutcome;
 }
 
 export interface FailedProblemCell extends BaseProblemCell {

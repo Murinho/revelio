@@ -24,11 +24,30 @@ export function UnfreezeScreen({
     [snapshot, revealCount, revealEvents]
   );
   const completed = revealCount >= revealEvents.length;
+  const nextReveal = revealEvents[revealCount] ?? null;
+  const latestReveal = revealCount > 0 ? revealEvents[revealCount - 1] : null;
 
   return (
     <div className="unfreeze-shell">
       <header className="unfreeze-header">
-        <h1 className="unfreeze-header__title">{configuration.contestName}</h1>
+        <h1 className="unfreeze-header__title">{snapshot.regionName}</h1>
+        <div className="unfreeze-status">
+          <span className="unfreeze-status__badge">
+            Reveals {revealCount}/{revealEvents.length}
+          </span>
+          <p className="unfreeze-status__text">
+            {nextReveal
+              ? `Next: ${nextReveal.teamName} on problem ${nextReveal.problemLabel}.`
+              : "All frozen problem cells have been revealed."}
+          </p>
+          {latestReveal ? (
+            <p className="unfreeze-status__text unfreeze-status__text--muted">
+              Last: {latestReveal.teamName}{" "}
+              {latestReveal.result === "solved" ? "solved" : "missed"}{" "}
+              {latestReveal.problemLabel}.
+            </p>
+          ) : null}
+        </div>
         <div className="unfreeze-controls">
           <button
             className="secondary-button"
@@ -52,7 +71,7 @@ export function UnfreezeScreen({
             }
             disabled={completed}
           >
-            {completed ? "Unfreeze Complete" : "Unfreeze Next Submission"}
+            {completed ? "Unfreeze Complete" : "Unfreeze Next Reveal"}
           </button>
           <button
             className="secondary-button"

@@ -1,5 +1,6 @@
 import {
   ContestSnapshot,
+  PendingRevealOutcome,
   ProblemCellState,
   SolvedProblemCell,
   TeamStanding
@@ -9,7 +10,7 @@ export interface UnfreezeRevealEvent {
   id: string;
   teamId: string;
   teamName: string;
-  organization: string;
+  organization?: string;
   problemId: string;
   problemLabel: string;
   contestMinute: number;
@@ -25,6 +26,7 @@ export function createFrozenSnapshot(snapshot: ContestSnapshot): ContestSnapshot
     updatedAtLabel: "Frozen scoreboard ready for reveal",
     teams: snapshot.teams.map((team) => ({
       ...team,
+      marked: false,
       problems: team.problems.map((cell) =>
         cell.kind === "queued"
           ? {
@@ -44,43 +46,71 @@ export function createFrozenSnapshot(snapshot: ContestSnapshot): ContestSnapshot
 export function buildUnfreezeRevealEvents(
   snapshot: ContestSnapshot
 ): UnfreezeRevealEvent[] {
-  const pendingEntries = snapshot.teams.flatMap((team, teamIndex) =>
-    team.problems.flatMap((cell, problemIndex) => {
-      if (cell.kind !== "queued" && cell.kind !== "frozen-pending") {
-        return [];
+  let teams = rankTeams(
+    applyFirstToSolveFlags(
+      createFrozenSnapshot(snapshot).teams.map((team) => ({
+        ...team,
+        marked: false,
+        problems: team.problems.map((cell) => ({ ...cell }))
+      }))
+    )
+  ).map((team) => ({
+    ...team,
+    marked: false
+  }));
+
+  const revealEvents: UnfreezeRevealEvent[] = [];
+
+  while (true) {
+    const teamIndex = findLastUnmarkedTeamIndex(teams);
+
+    if (teamIndex < 0) {
+      return revealEvents;
+    }
+
+    const activeTeamId = teams[teamIndex].id;
+
+    while (true) {
+      const activeTeamIndex = teams.findIndex((team) => team.id === activeTeamId);
+
+      if (activeTeamIndex < 0) {
+        break;
       }
 
-      const revealSeed =
-        teamIndex + problemIndex + cell.wrongAttempts + cell.frozenSubmissionCount;
-      const contestMinute = 240 + revealSeed * 3;
-      const solved =
-        (problemIndex + teamIndex + cell.frozenSubmissionCount) % 4 !== 0;
+      const activeTeam = teams[activeTeamIndex];
+      const problemIndex = findNextPendingProblemIndex(activeTeam);
 
-      return [
-        {
-          id: `${team.id}-${cell.problemId}`,
-          teamId: team.id,
-          teamName: team.name,
-          organization: team.organization,
-          problemId: cell.problemId,
-          problemLabel: cell.problemLabel,
-          contestMinute,
-          result: solved ? ("solved" as const) : ("failed" as const),
-          wrongAttempts: cell.wrongAttempts,
-          penalty: solved
-            ? contestMinute + Math.max(0, cell.wrongAttempts) * 20
-            : null
-        }
-      ];
-    })
-  );
+      if (problemIndex < 0) {
+        teams = teams.map((currentTeam) =>
+          currentTeam.id === activeTeamId
+            ? {
+                ...currentTeam,
+                marked: true
+              }
+            : currentTeam
+        );
+        break;
+      }
 
-  return pendingEntries.sort(
-    (leftEvent, rightEvent) =>
-      leftEvent.contestMinute - rightEvent.contestMinute ||
-      leftEvent.problemLabel.localeCompare(rightEvent.problemLabel) ||
-      leftEvent.teamName.localeCompare(rightEvent.teamName)
-  );
+      const pendingCell = activeTeam.problems[problemIndex];
+
+      if (!isPendingCell(pendingCell)) {
+        break;
+      }
+
+      const revealEvent = buildRevealEventFromPendingCell(
+        activeTeam,
+        pendingCell,
+        activeTeamIndex,
+        problemIndex
+      );
+
+      revealEvents.push(revealEvent);
+
+      teams[activeTeamIndex].problems[problemIndex] = createRevealedCell(revealEvent);
+      teams = rankTeams(applyFirstToSolveFlags(teams));
+    }
+  }
 }
 
 export function applyUnfreezeProgress(
@@ -91,6 +121,7 @@ export function applyUnfreezeProgress(
   const frozenSnapshot = createFrozenSnapshot(snapshot);
   const nextTeams = frozenSnapshot.teams.map((team) => ({
     ...team,
+    marked: false,
     problems: team.problems.map((cell) => ({ ...cell }))
   }));
   const teamIndexById = new Map(nextTeams.map((team, index) => [team.id, index]));
@@ -110,22 +141,7 @@ export function applyUnfreezeProgress(
       return;
     }
 
-    nextTeams[teamIndex].problems[problemIndex] =
-      event.result === "solved"
-        ? {
-            kind: "solved",
-            problemId: event.problemId,
-            problemLabel: event.problemLabel,
-            wrongAttempts: event.wrongAttempts,
-            penalty: event.penalty ?? event.contestMinute,
-            firstToSolve: false
-          }
-        : {
-            kind: "failed",
-            problemId: event.problemId,
-            problemLabel: event.problemLabel,
-            wrongAttempts: event.wrongAttempts + 1
-          };
+    nextTeams[teamIndex].problems[problemIndex] = createRevealedCell(event);
   });
 
   const rankedTeams = rankTeams(applyFirstToSolveFlags(nextTeams));
@@ -145,6 +161,90 @@ export function applyUnfreezeProgress(
 
 export function countRevealedSolves(revealEvents: UnfreezeRevealEvent[]): number {
   return revealEvents.filter((event) => event.result === "solved").length;
+}
+
+function buildRevealEventFromPendingCell(
+  team: TeamStanding,
+  cell: Extract<ProblemCellState, { kind: "queued" | "frozen-pending" }>,
+  teamIndex: number,
+  problemIndex: number
+): UnfreezeRevealEvent {
+  const revealOutcome = cell.revealOutcome ?? createSyntheticRevealOutcome(cell, teamIndex, problemIndex);
+  const contestMinute = revealOutcome.contestMinute ?? revealOutcome.lastHiddenContestMinute ?? 0;
+  const penalty =
+    revealOutcome.result === "solved"
+      ? revealOutcome.penalty ??
+        contestMinute + Math.max(0, revealOutcome.finalWrongAttempts) * 20
+      : null;
+
+  return {
+    id: `${team.id}-${cell.problemId}`,
+    teamId: team.id,
+    teamName: team.name,
+    organization: team.organization,
+    problemId: cell.problemId,
+    problemLabel: cell.problemLabel,
+    contestMinute,
+    result: revealOutcome.result,
+    wrongAttempts: revealOutcome.finalWrongAttempts,
+    penalty
+  };
+}
+
+function createSyntheticRevealOutcome(
+  cell: Extract<ProblemCellState, { kind: "queued" | "frozen-pending" }>,
+  teamIndex: number,
+  problemIndex: number
+): PendingRevealOutcome {
+  const revealSeed =
+    teamIndex + problemIndex + cell.wrongAttempts + cell.frozenSubmissionCount;
+  const contestMinute = 240 + revealSeed * 3;
+  const solved =
+    (problemIndex + teamIndex + cell.frozenSubmissionCount) % 4 !== 0;
+  const finalWrongAttempts = solved
+    ? cell.wrongAttempts + Math.max(0, cell.frozenSubmissionCount - 1)
+    : cell.wrongAttempts + cell.frozenSubmissionCount;
+
+  return {
+    result: solved ? "solved" : "failed",
+    hiddenWrongAttempts: Math.max(0, finalWrongAttempts - cell.wrongAttempts),
+    finalWrongAttempts,
+    contestMinute,
+    penalty: solved ? contestMinute + finalWrongAttempts * 20 : null,
+    lastHiddenContestMinute: contestMinute
+  };
+}
+
+function createRevealedCell(event: UnfreezeRevealEvent): ProblemCellState {
+  return event.result === "solved"
+    ? {
+        kind: "solved",
+        problemId: event.problemId,
+        problemLabel: event.problemLabel,
+        wrongAttempts: event.wrongAttempts,
+        penalty: event.penalty ?? event.contestMinute,
+        firstToSolve: false
+      }
+    : {
+        kind: "failed",
+        problemId: event.problemId,
+        problemLabel: event.problemLabel,
+        wrongAttempts: event.wrongAttempts
+      };
+}
+
+function findLastUnmarkedTeamIndex(teams: TeamStanding[]): number {
+  for (let teamIndex = teams.length - 1; teamIndex >= 0; teamIndex -= 1) {
+    if (!teams[teamIndex].marked) {
+      return teamIndex;
+    }
+  }
+
+  return -1;
+}
+
+function findNextPendingProblemIndex(team: TeamStanding): number {
+  return team.problems.findIndex((cell) => isPendingCell(cell));
 }
 
 function applyFirstToSolveFlags(teams: TeamStanding[]): TeamStanding[] {
@@ -194,17 +294,13 @@ function applyFirstToSolveFlags(teams: TeamStanding[]): TeamStanding[] {
       0
     ),
     pendingProblemLabels: team.problems
-      .filter(
-        (
-          cell
-        ): cell is Extract<ProblemCellState, { kind: "queued" | "frozen-pending" }> =>
-          cell.kind === "queued" || cell.kind === "frozen-pending"
-      )
+      .filter(isPendingCell)
       .map((cell) => cell.problemLabel)
   }));
 }
 
 function rankTeams(teams: TeamStanding[]): TeamStanding[] {
+  const markedById = new Map(teams.map((team) => [team.id, team.marked]));
   const sortedTeams = [...teams].sort(
     (leftTeam, rightTeam) =>
       rightTeam.solved - leftTeam.solved ||
@@ -225,11 +321,17 @@ function rankTeams(teams: TeamStanding[]): TeamStanding[] {
     return {
       ...team,
       rank: currentRank,
-      marked: index === 0
+      marked: markedById.get(team.id) ?? false
     };
   });
 }
 
 function isSolvedCell(cell: ProblemCellState): cell is SolvedProblemCell {
   return cell.kind === "solved";
+}
+
+function isPendingCell(
+  cell: ProblemCellState
+): cell is Extract<ProblemCellState, { kind: "queued" | "frozen-pending" }> {
+  return cell.kind === "queued" || cell.kind === "frozen-pending";
 }

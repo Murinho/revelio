@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ContestConfiguration } from "../domain/contestConfiguration";
 import { ContestSnapshot } from "../domain/types";
 import { createContestGateway } from "../services/contestGateway";
 
@@ -8,22 +9,30 @@ interface UseContestSnapshotResult {
   error: string | null;
 }
 
-const gateway = createContestGateway();
-
-export function useContestSnapshot(): UseContestSnapshotResult {
+export function useContestSnapshot(
+  configuration: ContestConfiguration | null
+): UseContestSnapshotResult {
   const [snapshot, setSnapshot] = useState<ContestSnapshot | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
 
     async function loadSnapshot() {
+      if (!configuration) {
+        setSnapshot(null);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
 
       try {
-        const nextSnapshot = await gateway.getContestSnapshot();
+        const gateway = createContestGateway(configuration);
+        const nextSnapshot = await gateway.getContestSnapshot(configuration);
 
         if (active) {
           setSnapshot(nextSnapshot);
@@ -48,7 +57,7 @@ export function useContestSnapshot(): UseContestSnapshotResult {
     return () => {
       active = false;
     };
-  }, []);
+  }, [configuration]);
 
   return useMemo(
     () => ({

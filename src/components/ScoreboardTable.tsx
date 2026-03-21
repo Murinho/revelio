@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import { ProblemMeta, TeamStanding } from "../domain/types";
 import { formatPenalty } from "../utils/format";
 import { ProblemCell } from "./ProblemCell";
@@ -8,6 +9,54 @@ interface ScoreboardTableProps {
 }
 
 export function ScoreboardTable({ problems, teams }: ScoreboardTableProps) {
+  const rowElementsRef = useRef(new Map<string, HTMLTableRowElement>());
+  const previousRowTopsRef = useRef(new Map<string, number>());
+
+  useLayoutEffect(() => {
+    const nextRowTops = new Map<string, number>();
+
+    teams.forEach((team) => {
+      const rowElement = rowElementsRef.current.get(team.id);
+
+      if (!rowElement) {
+        return;
+      }
+
+      const nextTop = rowElement.getBoundingClientRect().top;
+      nextRowTops.set(team.id, nextTop);
+
+      const previousTop = previousRowTopsRef.current.get(team.id);
+
+      if (previousTop === undefined) {
+        return;
+      }
+
+      const deltaY = previousTop - nextTop;
+
+      if (Math.abs(deltaY) < 1) {
+        return;
+      }
+
+      rowElement.getAnimations().forEach((animation) => animation.cancel());
+      rowElement.animate(
+        [
+          {
+            transform: `translateY(${deltaY}px)`
+          },
+          {
+            transform: "translateY(0)"
+          }
+        ],
+        {
+          duration: 700,
+          easing: "cubic-bezier(0.22, 1, 0.36, 1)"
+        }
+      );
+    });
+
+    previousRowTopsRef.current = nextRowTops;
+  }, [teams]);
+
   function getRankCellClass(rank: number) {
     if (rank === 1) {
       return "scoreboard-table__cell--rank-first";
@@ -22,6 +71,18 @@ export function ScoreboardTable({ problems, teams }: ScoreboardTableProps) {
     }
 
     return "";
+  }
+
+  function getTeamPrimaryLabel(team: TeamStanding) {
+    return team.organization ? `[${team.organization}] ${team.name}` : team.name;
+  }
+
+  function getTeamMetaLabel(team: TeamStanding) {
+    if (team.members && team.members.length > 0) {
+      return team.members.join(" / ");
+    }
+
+    return null;
   }
 
   return (
@@ -45,7 +106,18 @@ export function ScoreboardTable({ problems, teams }: ScoreboardTableProps) {
           </thead>
           <tbody>
             {teams.map((team) => (
-              <tr key={team.id} className="scoreboard-table__row">
+              <tr
+                key={team.id}
+                className="scoreboard-table__row"
+                ref={(rowElement) => {
+                  if (rowElement) {
+                    rowElementsRef.current.set(team.id, rowElement);
+                    return;
+                  }
+
+                  rowElementsRef.current.delete(team.id);
+                }}
+              >
                 <td
                   className={`scoreboard-table__cell scoreboard-table__cell--rank ${getRankCellClass(
                     team.rank
@@ -55,9 +127,10 @@ export function ScoreboardTable({ problems, teams }: ScoreboardTableProps) {
                 </td>
                 <td className="scoreboard-table__cell scoreboard-table__cell--team">
                   <div className="team-cell">
-                    <strong className="team-cell__name">
-                      [{team.organization}] {team.name}
-                    </strong>
+                    <strong className="team-cell__name">{getTeamPrimaryLabel(team)}</strong>
+                    {getTeamMetaLabel(team) ? (
+                      <span className="team-cell__meta">{getTeamMetaLabel(team)}</span>
+                    ) : null}
                   </div>
                 </td>
                 <td className="scoreboard-table__cell scoreboard-table__cell--score">
