@@ -200,7 +200,7 @@ async function fetchCodeforcesContestData(contestId: number): Promise<Codeforces
 
   if (selectedRows.rows.length === 0) {
     throw new Error(
-      "Codeforces returned no visible participants for this contest. Private contests will need a server-side signed gateway."
+      "Codeforces returned no virtual participants for this contest."
     );
   }
 
@@ -213,7 +213,11 @@ async function fetchCodeforcesContestData(contestId: number): Promise<Codeforces
   const submissions = (await loadContestSubmissions(contestId)).filter((submission) => {
     const participantKey = getPartyKey(submission.author);
 
-    return participantKey !== null && participantKeys.has(participantKey);
+    return (
+      submission.author.participantType === "VIRTUAL" &&
+      participantKey !== null &&
+      participantKeys.has(participantKey)
+    );
   });
 
   return {
@@ -319,7 +323,7 @@ function buildContestSnapshot(
     teams,
     recentSubmissions: buildRecentSubmissions(teams),
     updatedAtLabel:
-      "Loaded from Codeforces contest.standings and contest.status, including unofficial participants"
+      "Loaded from Codeforces contest.standings and contest.status for virtual participants only"
   };
 }
 
@@ -557,7 +561,7 @@ function selectRelevantRows(rows: CodeforcesRanklistRow[]): {
   rows: CodeforcesRanklistRow[];
 } {
   return {
-    rows: rows.filter((row) => row.party.participantType !== "MANAGER")
+    rows: rows.filter((row) => row.party.participantType === "VIRTUAL")
   };
 }
 
