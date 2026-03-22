@@ -476,23 +476,23 @@
 }
 
 .scoreboard-table__row--active .scoreboard-table__cell {
-  background: #6a7784;
+  background: #72808c;
 }
 
 .scoreboard-table__row--active .scoreboard-table__cell--rank,
 .scoreboard-table__row--active .scoreboard-table__cell--team,
 .scoreboard-table__row--active .scoreboard-table__cell--score {
-  background: #758290;
+  background: #808e9b;
 }
 
 .scoreboard-table__row--active .problem-cell {
-  filter: brightness(1.08);
+  filter: brightness(1.05);
 }
 
 .scoreboard-table__row--active .scoreboard-table__cell {
   box-shadow:
-    inset 0 0 0 1px rgba(188, 219, 255, 0.22),
-    0 0 0 1px rgba(188, 219, 255, 0.08);
+    inset 0 0 0 1px rgba(214, 228, 244, 0.3),
+    0 0 0 1px rgba(214, 228, 244, 0.12);
 }
 
 .scoreboard-table__row:hover .scoreboard-table__cell--team,
@@ -504,7 +504,7 @@
 .scoreboard-table__row--active:hover .scoreboard-table__cell--team,
 .scoreboard-table__row--active:hover .scoreboard-table__cell--score,
 .scoreboard-table__row--active:hover .scoreboard-table__cell--rank {
-  background: #758290;
+  background: #808e9b;
 }
 
 .scoreboard-table__cell {

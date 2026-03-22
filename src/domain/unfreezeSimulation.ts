@@ -10,11 +10,17 @@ import {
 
 interface BaseUnfreezeEvent {
   id: string;
-  kind: "submission" | "team-visit";
+  kind: "advance" | "submission";
   teamId: string;
   teamName: string;
   organization?: string;
   contestMinute: number | null;
+  nextCurrentTeamId: string | null;
+  nextCurrentTeamName: string | null;
+}
+
+export interface AdvanceTeamEvent extends BaseUnfreezeEvent {
+  kind: "advance";
 }
 
 export interface SubmissionRevealEvent extends BaseUnfreezeEvent {
@@ -27,13 +33,17 @@ export interface SubmissionRevealEvent extends BaseUnfreezeEvent {
   frozenSubmissionCount: number;
   penalty: number | null;
   nextCell: ProblemCellState;
+  previousRank: number;
+  nextRank: number;
+  positionsGained: number;
 }
 
-export interface TeamVisitEvent extends BaseUnfreezeEvent {
-  kind: "team-visit";
-}
+export type UnfreezeRevealEvent = AdvanceTeamEvent | SubmissionRevealEvent;
 
-export type UnfreezeRevealEvent = SubmissionRevealEvent | TeamVisitEvent;
+export interface UnfreezeProgressState {
+  snapshot: ContestSnapshot;
+  currentTeamId: string | null;
+}
 
 export function createFrozenSnapshot(snapshot: ContestSnapshot): ContestSnapshot {
   return {
@@ -66,116 +76,121 @@ export function createFrozenSnapshot(snapshot: ContestSnapshot): ContestSnapshot
 export function buildUnfreezeRevealEvents(
   snapshot: ContestSnapshot
 ): UnfreezeRevealEvent[] {
-  let teams = rankTeams(
-    applyFirstToSolveFlags(
-      createFrozenSnapshot(snapshot).teams.map((team) => cloneTeam(team, false))
-    )
-  );
+  let teams = getRankedFrozenTeams(snapshot);
+  let currentTeamId = getLastTeamId(teams);
   const revealEvents: UnfreezeRevealEvent[] = [];
 
-  while (true) {
-    const teamIndex = findLastUnmarkedTeamIndex(teams);
+  while (currentTeamId) {
+    const currentTeamIndex = teams.findIndex((team) => team.id === currentTeamId);
 
-    if (teamIndex < 0) {
-      return revealEvents;
+    if (currentTeamIndex < 0) {
+      currentTeamId = getLastTeamId(teams);
+      continue;
     }
 
-    const activeTeamId = teams[teamIndex].id;
+    const currentTeam = teams[currentTeamIndex];
+    const pendingProblemIndex = findNextPendingProblemIndex(currentTeam);
 
-    while (true) {
-      const activeTeamIndex = teams.findIndex((team) => team.id === activeTeamId);
+    if (pendingProblemIndex < 0) {
+      const nextCurrentTeam = getTeamAbove(teams, currentTeam.id);
 
-      if (activeTeamIndex < 0) {
-        break;
-      }
-
-      const activeTeam = teams[activeTeamIndex];
-      const problemIndex = findNextPendingProblemIndex(activeTeam);
-
-      if (problemIndex < 0) {
-        revealEvents.push(buildTeamVisitEvent(activeTeam));
-        teams = rankTeams(
-          applyFirstToSolveFlags(
-            teams.map((team) =>
-              team.id === activeTeamId
-                ? {
-                    ...team,
-                    marked: true
-                  }
-                : team
-            )
-          )
-        );
-        break;
-      }
-
-      const pendingCell = activeTeam.problems[problemIndex];
-
-      if (!isPendingCell(pendingCell)) {
-        break;
-      }
-
-      const revealEvent = buildRevealEventFromPendingCell(
-        activeTeam,
-        pendingCell,
-        activeTeamIndex,
-        problemIndex
+      revealEvents.push(
+        buildAdvanceEvent(currentTeam, nextCurrentTeam, revealEvents.length + 1)
       );
-
-      revealEvents.push(revealEvent);
-      teams[activeTeamIndex].problems[problemIndex] = cloneProblemCell(revealEvent.nextCell);
-      teams = rankTeams(applyFirstToSolveFlags(teams));
+      currentTeamId = nextCurrentTeam?.id ?? null;
+      continue;
     }
+
+    const pendingCell = currentTeam.problems[pendingProblemIndex];
+
+    if (!isPendingCell(pendingCell)) {
+      currentTeamId = getTeamAbove(teams, currentTeam.id)?.id ?? null;
+      continue;
+    }
+
+    const teamAboveBeforeReveal = getTeamAbove(teams, currentTeam.id);
+    const revealEvent = buildRevealEventFromPendingCell(
+      currentTeam,
+      pendingCell,
+      currentTeamIndex,
+      pendingProblemIndex,
+      revealEvents.length + 1
+    );
+
+    teams[currentTeamIndex].problems[pendingProblemIndex] = cloneProblemCell(revealEvent.nextCell);
+    teams = rankTeams(applyFirstToSolveFlags(teams));
+
+    const updatedTeamIndex = teams.findIndex((team) => team.id === currentTeam.id);
+    const updatedTeam = updatedTeamIndex >= 0 ? teams[updatedTeamIndex] : null;
+
+    if (!updatedTeam) {
+      break;
+    }
+
+    const positionsGained = Math.max(0, currentTeamIndex - updatedTeamIndex);
+    const climbed = revealEvent.verdict === "accepted" && positionsGained > 0;
+    const nextCurrentTeam =
+      climbed
+        ? (teamAboveBeforeReveal ? findTeamById(teams, teamAboveBeforeReveal.id) : updatedTeam)
+        : updatedTeam;
+
+    revealEvents.push({
+      ...revealEvent,
+      previousRank: currentTeam.rank,
+      nextRank: updatedTeam.rank,
+      positionsGained,
+      nextCurrentTeamId: nextCurrentTeam?.id ?? null,
+      nextCurrentTeamName: nextCurrentTeam?.name ?? null
+    });
+
+    currentTeamId = nextCurrentTeam?.id ?? null;
   }
+
+  return revealEvents;
 }
 
 export function applyUnfreezeProgress(
   snapshot: ContestSnapshot,
   revealEvents: UnfreezeRevealEvent[],
   revealCount: number
-): ContestSnapshot {
+): UnfreezeProgressState {
   const frozenSnapshot = createFrozenSnapshot(snapshot);
-  const nextTeams = frozenSnapshot.teams.map((team) => cloneTeam(team, false));
-  const teamIndexById = new Map(nextTeams.map((team, index) => [team.id, index]));
+  let teams = getRankedFrozenTeams(frozenSnapshot);
+  let currentTeamId = getLastTeamId(teams);
 
   revealEvents.slice(0, revealCount).forEach((event) => {
-    const teamIndex = teamIndexById.get(event.teamId);
+    if (event.kind === "submission") {
+      const teamIndex = teams.findIndex((team) => team.id === event.teamId);
 
-    if (teamIndex === undefined) {
-      return;
+      if (teamIndex >= 0) {
+        const problemIndex = teams[teamIndex].problems.findIndex(
+          (cell) => cell.problemId === event.problemId
+        );
+
+        if (problemIndex >= 0) {
+          teams[teamIndex].problems[problemIndex] = cloneProblemCell(event.nextCell);
+          teams = rankTeams(applyFirstToSolveFlags(teams));
+        }
+      }
     }
 
-    if (event.kind === "team-visit") {
-      nextTeams[teamIndex] = {
-        ...nextTeams[teamIndex],
-        marked: true
-      };
-      return;
-    }
-
-    const problemIndex = nextTeams[teamIndex].problems.findIndex(
-      (cell) => cell.problemId === event.problemId
-    );
-
-    if (problemIndex < 0) {
-      return;
-    }
-
-    nextTeams[teamIndex].problems[problemIndex] = cloneProblemCell(event.nextCell);
+    currentTeamId = event.nextCurrentTeamId;
   });
 
-  const rankedTeams = rankTeams(applyFirstToSolveFlags(nextTeams));
   const revealedCount = Math.min(revealCount, revealEvents.length);
   const pendingCount = revealEvents.length - revealedCount;
 
   return {
-    ...frozenSnapshot,
-    phase: pendingCount === 0 ? "complete" : "revealing",
-    teams: rankedTeams,
-    updatedAtLabel:
-      pendingCount === 0
-        ? "All unfreeze steps have been completed"
-        : `${revealedCount} step${revealedCount === 1 ? "" : "s"} completed`
+    currentTeamId,
+    snapshot: {
+      ...frozenSnapshot,
+      phase: pendingCount === 0 ? "complete" : "revealing",
+      teams,
+      updatedAtLabel:
+        pendingCount === 0
+          ? "All unfreeze steps have been completed"
+          : `${revealedCount} step${revealedCount === 1 ? "" : "s"} completed`
+    }
   };
 }
 
@@ -186,12 +201,33 @@ export function countRevealedSolves(revealEvents: UnfreezeRevealEvent[]): number
   ).length;
 }
 
+function buildAdvanceEvent(
+  team: TeamStanding,
+  nextCurrentTeam: TeamStanding | null,
+  eventNumber: number
+): AdvanceTeamEvent {
+  return {
+    id: `step-${eventNumber}-${team.id}-advance`,
+    kind: "advance",
+    teamId: team.id,
+    teamName: team.name,
+    organization: team.organization,
+    contestMinute: null,
+    nextCurrentTeamId: nextCurrentTeam?.id ?? null,
+    nextCurrentTeamName: nextCurrentTeam?.name ?? null
+  };
+}
+
 function buildRevealEventFromPendingCell(
   team: TeamStanding,
   cell: PendingProblemCell,
   teamIndex: number,
-  problemIndex: number
-): SubmissionRevealEvent {
+  problemIndex: number,
+  eventNumber: number
+): Omit<
+  SubmissionRevealEvent,
+  "nextCurrentTeamId" | "nextCurrentTeamName" | "previousRank" | "nextRank" | "positionsGained"
+> {
   const revealOutcome =
     cell.revealOutcome?.hiddenSubmissions.length
       ? cloneRevealOutcome(cell.revealOutcome)
@@ -228,7 +264,7 @@ function buildRevealEventFromPendingCell(
         : "pending";
 
   return {
-    id: `${team.id}-${cell.problemId}-${hiddenSubmission.id}`,
+    id: `step-${eventNumber}-${team.id}-${cell.problemId}-${hiddenSubmission.id}`,
     kind: "submission",
     teamId: team.id,
     teamName: team.name,
@@ -242,17 +278,6 @@ function buildRevealEventFromPendingCell(
     frozenSubmissionCount: isPendingCell(nextCell) ? nextCell.frozenSubmissionCount : 0,
     penalty: nextCell.kind === "solved" ? nextCell.penalty : null,
     nextCell
-  };
-}
-
-function buildTeamVisitEvent(team: TeamStanding): TeamVisitEvent {
-  return {
-    id: `${team.id}-team-visit`,
-    kind: "team-visit",
-    teamId: team.id,
-    teamName: team.name,
-    organization: team.organization,
-    contestMinute: null
   };
 }
 
@@ -375,22 +400,36 @@ function cloneProblemCell(cell: ProblemCellState): ProblemCellState {
   };
 }
 
-function cloneTeam(team: TeamStanding, marked: boolean): TeamStanding {
+function cloneTeam(team: TeamStanding): TeamStanding {
   return {
     ...team,
-    marked,
+    marked: false,
     problems: team.problems.map((cell) => cloneProblemCell(cell))
   };
 }
 
-function findLastUnmarkedTeamIndex(teams: TeamStanding[]): number {
-  for (let teamIndex = teams.length - 1; teamIndex >= 0; teamIndex -= 1) {
-    if (!teams[teamIndex].marked) {
-      return teamIndex;
-    }
+function getRankedFrozenTeams(snapshot: ContestSnapshot): TeamStanding[] {
+  return rankTeams(
+    applyFirstToSolveFlags(createFrozenSnapshot(snapshot).teams.map((team) => cloneTeam(team)))
+  );
+}
+
+function getLastTeamId(teams: TeamStanding[]): string | null {
+  return teams.length > 0 ? teams[teams.length - 1].id : null;
+}
+
+function getTeamAbove(teams: TeamStanding[], teamId: string): TeamStanding | null {
+  const teamIndex = teams.findIndex((team) => team.id === teamId);
+
+  if (teamIndex <= 0) {
+    return null;
   }
 
-  return -1;
+  return teams[teamIndex - 1] ?? null;
+}
+
+function findTeamById(teams: TeamStanding[], teamId: string): TeamStanding | null {
+  return teams.find((team) => team.id === teamId) ?? null;
 }
 
 function findNextPendingProblemIndex(team: TeamStanding): number {
@@ -454,8 +493,7 @@ function rankTeams(teams: TeamStanding[]): TeamStanding[] {
   const sortedTeams = [...teams].sort(
     (leftTeam, rightTeam) =>
       rightTeam.solved - leftTeam.solved ||
-      leftTeam.penalty - rightTeam.penalty ||
-      leftTeam.name.localeCompare(rightTeam.name)
+      leftTeam.penalty - rightTeam.penalty
   );
   let currentRank = 0;
   let previousSolved = Number.NaN;

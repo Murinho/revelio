@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { ProblemMeta, TeamStanding } from "../domain/types";
 import { formatPenalty } from "../utils/format";
 import { ProblemCell } from "./ProblemCell";
@@ -6,19 +6,15 @@ import { ProblemCell } from "./ProblemCell";
 interface ScoreboardTableProps {
   problems: ProblemMeta[];
   teams: TeamStanding[];
-  focusTeamId?: string | null;
-  focusRequestKey?: string | null;
   highlightedTeamId?: string | null;
 }
 
-const ROW_REORDER_DURATION_MS = 820;
+const ROW_REORDER_DURATION_MS = 700;
 const ROW_REORDER_EASING = "cubic-bezier(0.65, 0, 0.35, 1)";
 
 export function ScoreboardTable({
   problems,
   teams,
-  focusTeamId = null,
-  focusRequestKey = null,
   highlightedTeamId = null
 }: ScoreboardTableProps) {
   const rowElementsRef = useRef(new Map<string, HTMLTableRowElement>());
@@ -68,32 +64,6 @@ export function ScoreboardTable({
 
     previousRowTopsRef.current = nextRowTops;
   }, [teams]);
-
-  useEffect(() => {
-    if (!focusTeamId) {
-      return;
-    }
-
-    const rowElement = rowElementsRef.current.get(focusTeamId);
-
-    if (!rowElement) {
-      return;
-    }
-
-    let firstFrameId = 0;
-    let secondFrameId = 0;
-
-    firstFrameId = window.requestAnimationFrame(() => {
-      secondFrameId = window.requestAnimationFrame(() => {
-        centerRowInView(rowElement);
-      });
-    });
-
-    return () => {
-      window.cancelAnimationFrame(firstFrameId);
-      window.cancelAnimationFrame(secondFrameId);
-    };
-  }, [focusRequestKey, focusTeamId]);
 
   function getRankCellClass(rank: number) {
     if (rank === 1) {
@@ -194,73 +164,4 @@ export function ScoreboardTable({
       </div>
     </div>
   );
-}
-
-function centerRowInView(rowElement: HTMLTableRowElement) {
-  const scrollContainer = findClosestVerticalScrollContainer(rowElement);
-
-  if (!scrollContainer) {
-    rowElement.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-      inline: "nearest"
-    });
-    return;
-  }
-
-  const rowTopWithinContainer =
-    getAbsoluteOffsetTop(rowElement) - getAbsoluteOffsetTop(scrollContainer);
-  const unclampedTargetScrollTop =
-    rowTopWithinContainer - (scrollContainer.clientHeight - rowElement.offsetHeight) / 2;
-  const maxScrollTop =
-    scrollContainer.scrollHeight - scrollContainer.clientHeight;
-
-  scrollContainer.scrollTo({
-    top: clamp(unclampedTargetScrollTop, 0, Math.max(0, maxScrollTop)),
-    behavior: "smooth"
-  });
-}
-
-function findClosestVerticalScrollContainer(element: HTMLElement): HTMLElement | null {
-  let currentElement = element.parentElement;
-
-  while (currentElement) {
-    const computedStyles = window.getComputedStyle(currentElement);
-    const canScrollVertically =
-      /(auto|scroll|overlay)/.test(computedStyles.overflowY) &&
-      currentElement.scrollHeight > currentElement.clientHeight + 1;
-
-    if (canScrollVertically) {
-      return currentElement;
-    }
-
-    currentElement = currentElement.parentElement;
-  }
-
-  const documentScroller = document.scrollingElement;
-
-  if (
-    documentScroller instanceof HTMLElement &&
-    documentScroller.scrollHeight > documentScroller.clientHeight + 1
-  ) {
-    return documentScroller;
-  }
-
-  return null;
-}
-
-function getAbsoluteOffsetTop(element: HTMLElement): number {
-  let totalOffsetTop = 0;
-  let currentElement: HTMLElement | null = element;
-
-  while (currentElement) {
-    totalOffsetTop += currentElement.offsetTop;
-    currentElement = currentElement.offsetParent as HTMLElement | null;
-  }
-
-  return totalOffsetTop;
-}
-
-function clamp(value: number, minimum: number, maximum: number): number {
-  return Math.min(Math.max(value, minimum), maximum);
 }

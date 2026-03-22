@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ScoreboardTable } from "./ScoreboardTable";
-import { ContestSnapshot } from "../domain/types";
+import { ContestSnapshot, TeamStanding } from "../domain/types";
 import {
   applyUnfreezeProgress,
   buildUnfreezeRevealEvents,
@@ -15,14 +15,16 @@ interface UnfreezeScreenProps {
 export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
   const revealEvents = useMemo(() => buildUnfreezeRevealEvents(snapshot), [snapshot]);
   const [revealCount, setRevealCount] = useState(0);
-  const unfreezeSnapshot = useMemo(
+  const unfreezeProgress = useMemo(
     () => applyUnfreezeProgress(snapshot, revealEvents, revealCount),
     [snapshot, revealCount, revealEvents]
   );
+  const unfreezeSnapshot = unfreezeProgress.snapshot;
   const completed = revealCount >= revealEvents.length;
   const nextReveal = revealEvents[revealCount] ?? null;
   const latestReveal = revealCount > 0 ? revealEvents[revealCount - 1] : null;
-  const focusedReveal = latestReveal ?? nextReveal;
+  const currentTeam =
+    unfreezeSnapshot.teams.find((team) => team.id === unfreezeProgress.currentTeamId) ?? null;
   const canStepBackward = revealCount > 0;
   const canStepForward = revealCount < revealEvents.length;
 
@@ -66,6 +68,11 @@ export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
           <span className="unfreeze-status__badge">
             Steps {revealCount}/{revealEvents.length}
           </span>
+          <p className="unfreeze-status__text">
+            {currentTeam
+              ? `Current: ${formatCurrentTeam(currentTeam)}`
+              : "Current: all teams have already been checked."}
+          </p>
           <p className="unfreeze-status__text">
             {nextReveal
               ? `Next: ${formatUpcomingReveal(nextReveal)}`
@@ -117,11 +124,7 @@ export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
       </header>
 
       <ScoreboardTable
-        focusTeamId={focusedReveal?.teamId ?? null}
-        focusRequestKey={
-          focusedReveal ? `${revealCount}:${focusedReveal.id}` : `${revealCount}:none`
-        }
-        highlightedTeamId={focusedReveal?.teamId ?? null}
+        highlightedTeamId={unfreezeProgress.currentTeamId}
         problems={unfreezeSnapshot.problems}
         teams={unfreezeSnapshot.teams}
       />
@@ -143,8 +146,16 @@ function isEditableEventTarget(target: EventTarget | null): boolean {
 }
 
 function formatUpcomingReveal(revealEvent: UnfreezeRevealEvent): string {
-  if (revealEvent.kind === "team-visit") {
-    return `${revealEvent.teamName} will be visited and marked in place.`;
+  if (revealEvent.kind === "advance") {
+    return revealEvent.nextCurrentTeamName
+      ? `${revealEvent.teamName} has no pending submissions, so the process moves to ${revealEvent.nextCurrentTeamName}.`
+      : `${revealEvent.teamName} has no pending submissions, so the reveal will finish.`;
+  }
+
+  if (revealEvent.verdict === "accepted" && revealEvent.positionsGained > 0) {
+    return `${revealEvent.teamName} will solve problem ${revealEvent.problemLabel} and climb ${formatPlaceCount(
+      revealEvent.positionsGained
+    )}.`;
   }
 
   if (revealEvent.verdict === "accepted") {
@@ -155,12 +166,22 @@ function formatUpcomingReveal(revealEvent: UnfreezeRevealEvent): string {
     return `${revealEvent.teamName} will exhaust problem ${revealEvent.problemLabel}.`;
   }
 
-  return `${revealEvent.teamName} will reveal another wrong try on problem ${revealEvent.problemLabel}.`;
+  return `${revealEvent.teamName} will reveal another submission on problem ${revealEvent.problemLabel}, leaving ${formatPendingCount(
+    revealEvent.frozenSubmissionCount
+  )}.`;
 }
 
 function formatCompletedReveal(revealEvent: UnfreezeRevealEvent): string {
-  if (revealEvent.kind === "team-visit") {
-    return `${revealEvent.teamName} was visited and marked in place.`;
+  if (revealEvent.kind === "advance") {
+    return revealEvent.nextCurrentTeamName
+      ? `${revealEvent.teamName} had no pending submissions, so the process moved to ${revealEvent.nextCurrentTeamName}.`
+      : `${revealEvent.teamName} had no pending submissions, so the reveal finished.`;
+  }
+
+  if (revealEvent.verdict === "accepted" && revealEvent.positionsGained > 0) {
+    return `${revealEvent.teamName} solved problem ${revealEvent.problemLabel} and climbed ${formatPlaceCount(
+      revealEvent.positionsGained
+    )} to rank ${revealEvent.nextRank}.`;
   }
 
   if (revealEvent.verdict === "accepted") {
@@ -171,5 +192,23 @@ function formatCompletedReveal(revealEvent: UnfreezeRevealEvent): string {
     return `${revealEvent.teamName} exhausted problem ${revealEvent.problemLabel}.`;
   }
 
-  return `${revealEvent.teamName} revealed a wrong try on problem ${revealEvent.problemLabel}.`;
+  return `${revealEvent.teamName} revealed another submission on problem ${revealEvent.problemLabel}, leaving ${formatPendingCount(
+    revealEvent.frozenSubmissionCount
+  )}.`;
+}
+
+function formatCurrentTeam(team: TeamStanding): string {
+  if (team.pendingProblemLabels.length === 0) {
+    return `${team.name} has no pending submissions.`;
+  }
+
+  return `${team.name} is being checked on ${team.pendingProblemLabels.join(", ")}.`;
+}
+
+function formatPendingCount(count: number): string {
+  return `${count} pending submission${count === 1 ? "" : "s"}`;
+}
+
+function formatPlaceCount(count: number): string {
+  return `${count} place${count === 1 ? "" : "s"}`;
 }
