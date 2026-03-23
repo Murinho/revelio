@@ -124,7 +124,10 @@ export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
       </header>
 
       <ScoreboardTable
+        autoFollowHighlightedTeam
+        fillViewport
         highlightedTeamId={unfreezeProgress.currentTeamId}
+        lockUserScroll
         problems={unfreezeSnapshot.problems}
         teams={unfreezeSnapshot.teams}
       />

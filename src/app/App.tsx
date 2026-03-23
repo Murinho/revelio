@@ -246,7 +246,7 @@ export function App() {
     }
 
     return (
-      <main className="app">
+      <main className="app app--unfreeze">
         <div className="app__backdrop" />
         <UnfreezeScreen snapshot={snapshot} />
       </main>
