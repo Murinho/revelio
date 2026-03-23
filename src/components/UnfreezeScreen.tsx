@@ -1,11 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ScoreboardTable } from "./ScoreboardTable";
-import { ContestSnapshot, TeamStanding } from "../domain/types";
-import {
-  applyUnfreezeProgress,
-  buildUnfreezeRevealEvents,
-  UnfreezeRevealEvent
-} from "../domain/unfreezeSimulation";
+import { ContestSnapshot } from "../domain/types";
+import { applyUnfreezeProgress, buildUnfreezeRevealEvents } from "../domain/unfreezeSimulation";
 import "./UnfreezeScreen.css";
 
 interface UnfreezeScreenProps {
@@ -20,11 +16,6 @@ export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
     [snapshot, revealCount, revealEvents]
   );
   const unfreezeSnapshot = unfreezeProgress.snapshot;
-  const completed = revealCount >= revealEvents.length;
-  const nextReveal = revealEvents[revealCount] ?? null;
-  const latestReveal = revealCount > 0 ? revealEvents[revealCount - 1] : null;
-  const currentTeam =
-    unfreezeSnapshot.teams.find((team) => team.id === unfreezeProgress.currentTeamId) ?? null;
   const canStepBackward = revealCount > 0;
   const canStepForward = revealCount < revealEvents.length;
 
@@ -64,29 +55,6 @@ export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
     <div className="unfreeze-shell">
       <header className="unfreeze-header">
         <h1 className="unfreeze-header__title">{snapshot.regionName}</h1>
-        <div className="unfreeze-status">
-          <span className="unfreeze-status__badge">
-            Steps {revealCount}/{revealEvents.length}
-          </span>
-          <p className="unfreeze-status__text">
-            {currentTeam
-              ? `Current: ${formatCurrentTeam(currentTeam)}`
-              : "Current: all teams have already been checked."}
-          </p>
-          <p className="unfreeze-status__text">
-            {nextReveal
-              ? `Next: ${formatUpcomingReveal(nextReveal)}`
-              : "All teams have been visited and all frozen submissions have been revealed."}
-          </p>
-          {latestReveal ? (
-            <p className="unfreeze-status__text unfreeze-status__text--muted">
-              Last: {formatCompletedReveal(latestReveal)}
-            </p>
-          ) : null}
-          <p className="unfreeze-status__text unfreeze-status__text--muted">
-            Keyboard: <kbd>Right Arrow</kbd> next step, <kbd>Left Arrow</kbd> go back.
-          </p>
-        </div>
         <div className="unfreeze-controls">
           <button
             className="secondary-button"
@@ -98,7 +66,7 @@ export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
             }
             disabled={!canStepBackward}
           >
-            Go Back One Step
+            Go Back
           </button>
           <button
             className="setup-submit-panel__button unfreeze-controls__primary"
@@ -110,7 +78,7 @@ export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
             }
             disabled={!canStepForward}
           >
-            {completed ? "Unfreeze Complete" : "Unfreeze Next Step"}
+            Next Submission
           </button>
           <button
             className="secondary-button"
@@ -147,72 +115,4 @@ function isEditableEventTarget(target: EventTarget | null): boolean {
 
   const editableAncestor = target.closest("input, textarea, select, [contenteditable='true']");
   return editableAncestor !== null;
-}
-
-function formatUpcomingReveal(revealEvent: UnfreezeRevealEvent): string {
-  if (revealEvent.kind === "advance") {
-    return revealEvent.nextCurrentTeamName
-      ? `${revealEvent.teamName} has no pending submissions, so the process moves to ${revealEvent.nextCurrentTeamName}.`
-      : `${revealEvent.teamName} has no pending submissions, so the reveal will finish.`;
-  }
-
-  if (revealEvent.verdict === "accepted" && revealEvent.positionsGained > 0) {
-    return `${revealEvent.teamName} will solve problem ${revealEvent.problemLabel} and climb ${formatPlaceCount(
-      revealEvent.positionsGained
-    )}.`;
-  }
-
-  if (revealEvent.verdict === "accepted") {
-    return `${revealEvent.teamName} will solve problem ${revealEvent.problemLabel}.`;
-  }
-
-  if (revealEvent.result === "failed") {
-    return `${revealEvent.teamName} will exhaust problem ${revealEvent.problemLabel}.`;
-  }
-
-  return `${revealEvent.teamName} will reveal another submission on problem ${revealEvent.problemLabel}, leaving ${formatPendingCount(
-    revealEvent.frozenSubmissionCount
-  )}.`;
-}
-
-function formatCompletedReveal(revealEvent: UnfreezeRevealEvent): string {
-  if (revealEvent.kind === "advance") {
-    return revealEvent.nextCurrentTeamName
-      ? `${revealEvent.teamName} had no pending submissions, so the process moved to ${revealEvent.nextCurrentTeamName}.`
-      : `${revealEvent.teamName} had no pending submissions, so the reveal finished.`;
-  }
-
-  if (revealEvent.verdict === "accepted" && revealEvent.positionsGained > 0) {
-    return `${revealEvent.teamName} solved problem ${revealEvent.problemLabel} and climbed ${formatPlaceCount(
-      revealEvent.positionsGained
-    )} to rank ${revealEvent.nextRank}.`;
-  }
-
-  if (revealEvent.verdict === "accepted") {
-    return `${revealEvent.teamName} solved problem ${revealEvent.problemLabel}.`;
-  }
-
-  if (revealEvent.result === "failed") {
-    return `${revealEvent.teamName} exhausted problem ${revealEvent.problemLabel}.`;
-  }
-
-  return `${revealEvent.teamName} revealed another submission on problem ${revealEvent.problemLabel}, leaving ${formatPendingCount(
-    revealEvent.frozenSubmissionCount
-  )}.`;
-}
-
-function formatCurrentTeam(team: TeamStanding): string {
-  if (team.pendingProblemLabels.length === 0) {
-    return `${team.name} has no pending submissions.`;
-  }
-
-  return `${team.name} is being checked on ${team.pendingProblemLabels.join(", ")}.`;
-}
-
-function formatPendingCount(count: number): string {
-  return `${count} pending submission${count === 1 ? "" : "s"}`;
-}
-
-function formatPlaceCount(count: number): string {
-  return `${count} place${count === 1 ? "" : "s"}`;
 }
