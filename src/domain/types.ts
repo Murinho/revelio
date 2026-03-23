@@ -52,7 +52,7 @@ export interface PendingRevealOutcome {
   result: "solved" | "failed";
   hiddenWrongAttempts: number;
   finalWrongAttempts: number;
-  contestMinute: number | null;
+  solveTime: number | null;
   penalty: number | null;
   lastHiddenContestMinute: number | null;
   hiddenSubmissions: HiddenSubmission[];
@@ -98,6 +98,7 @@ export interface FailedProblemCell extends BaseProblemCell {
 export interface SolvedProblemCell extends BaseProblemCell {
   kind: "solved";
   wrongAttempts: number;
+  solveTime: number;
   penalty: number;
   firstToSolve: boolean;
 }

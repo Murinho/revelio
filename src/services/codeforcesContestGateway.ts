@@ -384,11 +384,16 @@ function buildProblemCell(
   attempts: RelevantSubmissionAttempt[],
   freezeStartSeconds: number
 ): ProblemCellState {
-  const finalWrongAttempts = Math.max(0, problemResult?.rejectedAttemptCount ?? 0);
-  const finalSolved = (problemResult?.points ?? 0) > 0;
+  const firstAcceptedAttempt = attempts.find((attempt) => attempt.isAccepted);
+  const finalWrongAttempts =
+    attempts.length > 0
+      ? attempts.filter((attempt) => attempt.isRejected).length
+      : Math.max(0, problemResult?.rejectedAttemptCount ?? 0);
+  const finalSolved =
+    firstAcceptedAttempt !== undefined || (problemResult?.points ?? 0) > 0;
   const solveTimeSeconds =
-    problemResult?.bestSubmissionTimeSeconds ??
-    attempts.find((attempt) => attempt.isAccepted)?.relativeTimeSeconds;
+    firstAcceptedAttempt?.relativeTimeSeconds ??
+    problemResult?.bestSubmissionTimeSeconds;
   const hiddenAttempts = attempts.filter(
     (attempt) => attempt.relativeTimeSeconds > freezeStartSeconds
   );
@@ -412,6 +417,7 @@ function buildProblemCell(
       problemId: problem.id,
       problemLabel: problem.label,
       wrongAttempts: finalWrongAttempts,
+      solveTime: toContestMinute(solveTimeSeconds),
       penalty: computeIcpcPenalty(solveTimeSeconds, finalWrongAttempts),
       firstToSolve: false
     };
@@ -423,7 +429,7 @@ function buildProblemCell(
       result: finalSolved ? "solved" : "failed",
       hiddenWrongAttempts,
       finalWrongAttempts,
-      contestMinute: finalSolved && solveTimeSeconds !== undefined ? toContestMinute(solveTimeSeconds) : null,
+      solveTime: finalSolved && solveTimeSeconds !== undefined ? toContestMinute(solveTimeSeconds) : null,
       penalty: finalSolved && solveTimeSeconds !== undefined
         ? computeIcpcPenalty(solveTimeSeconds, finalWrongAttempts)
         : null,
@@ -611,20 +617,19 @@ function applyFirstToSolveFlags(teams: TeamStanding[]): TeamStanding[] {
         return cell.kind === "solved"
           ? {
               teamIndex,
-              penalty: cell.penalty,
-              wrongAttempts: cell.wrongAttempts
+              solveTime: cell.solveTime
             }
           : null;
       })
       .filter(
         (
           entry
-        ): entry is { teamIndex: number; penalty: number; wrongAttempts: number } =>
+        ): entry is { teamIndex: number; solveTime: number } =>
           entry !== null
       )
       .sort(
         (leftEntry, rightEntry) =>
-          leftEntry.penalty - rightEntry.penalty ||
+          leftEntry.solveTime - rightEntry.solveTime ||
           leftEntry.teamIndex - rightEntry.teamIndex
       );
 

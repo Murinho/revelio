@@ -21,7 +21,7 @@ type CellRecipe =
       wrongAttempts: number;
       frozenSubmissionCount: number;
     }
-  | { kind: "solved"; wrongAttempts: number; penalty: number };
+  | { kind: "solved"; wrongAttempts: number; solveTime: number };
 
 const BALLOON_COLORS = [
   "#f5f7fb",
@@ -71,29 +71,38 @@ for (let problemIndex = 0; problemIndex < problems.length; problemIndex += 1) {
   const lowerSolverTeamIndex = 8 + topGroupIndex;
   const lowerPendingTeamIndex = 8 + ((topGroupIndex + 1) % 4);
   const lowerFailedTeamIndex = 8 + ((topGroupIndex + 3) % 4);
-  const firstPenalty = 18 + problemIndex * 7 + (problemIndex % 3) * 2;
+  const firstSolveTime = 18 + problemIndex * 7 + (problemIndex % 3) * 2;
 
   setCellRecipe(
     firstSolverTeamIndex,
     problemIndex,
-    createSolvedRecipe(problemIndex % 3, firstPenalty)
+    createSolvedRecipe(problemIndex % 3, firstSolveTime)
   );
   setCellRecipe(
     middleSolverTeamIndex,
     problemIndex,
-    createSolvedRecipe(1 + ((problemIndex + 1) % 3), firstPenalty + 34 + (problemIndex % 5) * 5)
+    createSolvedRecipe(
+      1 + ((problemIndex + 1) % 3),
+      firstSolveTime + 34 + (problemIndex % 5) * 5
+    )
   );
   setCellRecipe(
     lowerSolverTeamIndex,
     problemIndex,
-    createSolvedRecipe(1 + (problemIndex % 2), firstPenalty + 76 + (problemIndex % 4) * 8)
+    createSolvedRecipe(
+      1 + (problemIndex % 2),
+      firstSolveTime + 76 + (problemIndex % 4) * 8
+    )
   );
 
   if (problemIndex % 2 === 1) {
     setCellRecipe(
       extraTopSolverTeamIndex,
       problemIndex,
-      createSolvedRecipe(1 + ((problemIndex + 2) % 3), firstPenalty + 19 + (problemIndex % 4) * 4)
+      createSolvedRecipe(
+        1 + ((problemIndex + 2) % 3),
+        firstSolveTime + 19 + (problemIndex % 4) * 4
+      )
     );
   }
 
@@ -196,11 +205,11 @@ function createFrozenPendingRecipe(
   };
 }
 
-function createSolvedRecipe(wrongAttempts: number, penalty: number): CellRecipe {
+function createSolvedRecipe(wrongAttempts: number, solveTime: number): CellRecipe {
   return {
     kind: "solved",
     wrongAttempts,
-    penalty
+    solveTime
   };
 }
 
@@ -265,7 +274,8 @@ function buildProblemCell(problem: ProblemMeta, recipe: CellRecipe): ProblemCell
         problemId: problem.id,
         problemLabel: problem.label,
         wrongAttempts: recipe.wrongAttempts,
-        penalty: recipe.penalty,
+        solveTime: recipe.solveTime,
+        penalty: recipe.solveTime + recipe.wrongAttempts * 20,
         firstToSolve: false
       };
   }
@@ -294,7 +304,7 @@ function applyFirstToSolveFlags(teams: TeamStanding[]): TeamStanding[] {
       )
       .sort(
         (left, right) =>
-          left.cell.penalty - right.cell.penalty || left.teamIndex - right.teamIndex
+          left.cell.solveTime - right.cell.solveTime || left.teamIndex - right.teamIndex
       );
 
     if (solvedCells.length === 0) {
@@ -408,9 +418,9 @@ function validateMockStandings(teams: TeamStanding[], problems: ProblemMeta[]) {
       );
     }
 
-    const earliestPenalty = Math.min(...solvedCells.map((cell) => cell.penalty));
+    const earliestSolveTime = Math.min(...solvedCells.map((cell) => cell.solveTime));
 
-    if (firstToSolveCells[0].penalty !== earliestPenalty) {
+    if (firstToSolveCells[0].solveTime !== earliestSolveTime) {
       throw new Error(
         `Problem ${problem.label} has an invalid first-to-solve assignment.`
       );

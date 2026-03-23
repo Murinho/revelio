@@ -245,7 +245,7 @@ function buildRevealEventFromPendingCell(
     cell.wrongAttempts + (hiddenSubmission.result === "rejected" ? 1 : 0);
   const contestMinute =
     hiddenSubmission.contestMinute ??
-    revealOutcome.contestMinute ??
+    revealOutcome.solveTime ??
     revealOutcome.lastHiddenContestMinute ??
     0;
   const nextCell = createNextCell(
@@ -290,13 +290,16 @@ function createNextCell(
   contestMinute: number
 ): ProblemCellState {
   if (hiddenSubmission.result === "accepted") {
+    const solveTime = revealOutcome.solveTime ?? contestMinute;
+
     return {
       kind: "solved",
       problemId: cell.problemId,
       problemLabel: cell.problemLabel,
       wrongAttempts,
+      solveTime,
       penalty:
-        revealOutcome.penalty ?? contestMinute + Math.max(0, wrongAttempts) * 20,
+        revealOutcome.penalty ?? solveTime + Math.max(0, wrongAttempts) * 20,
       firstToSolve: false
     };
   }
@@ -363,16 +366,16 @@ function createSyntheticRevealOutcome(
   const solveSubmission = hiddenSubmissions.find(
     (submission) => submission.result === "accepted"
   );
-  const contestMinute = solveSubmission?.contestMinute ?? null;
+  const solveTime = solveSubmission?.contestMinute ?? null;
 
   return {
     result: solved ? "solved" : "failed",
     hiddenWrongAttempts,
     finalWrongAttempts,
-    contestMinute,
+    solveTime,
     penalty:
-      solved && contestMinute !== null
-        ? contestMinute + finalWrongAttempts * 20
+      solved && solveTime !== null
+        ? solveTime + finalWrongAttempts * 20
         : null,
     lastHiddenContestMinute:
       hiddenSubmissions[hiddenSubmissions.length - 1]?.contestMinute ?? null,
@@ -463,7 +466,7 @@ function applyFirstToSolveFlags(teams: TeamStanding[]): TeamStanding[] {
       )
       .sort(
         (leftEntry, rightEntry) =>
-          leftEntry.cell.penalty - rightEntry.cell.penalty ||
+          leftEntry.cell.solveTime - rightEntry.cell.solveTime ||
           leftEntry.teamIndex - rightEntry.teamIndex
       );
 
