@@ -10,6 +10,7 @@ interface ScoreboardTableProps {
   autoFollowHighlightedTeam?: boolean;
   lockUserScroll?: boolean;
   fillViewport?: boolean;
+  visibleTeamsAboveHighlighted?: number;
 }
 
 const ROW_REORDER_DURATION_MS = 1500;
@@ -25,7 +26,8 @@ export function ScoreboardTable({
   highlightedTeamId = null,
   autoFollowHighlightedTeam = false,
   lockUserScroll = false,
-  fillViewport = false
+  fillViewport = false,
+  visibleTeamsAboveHighlighted = 0
 }: ScoreboardTableProps) {
   const scrollElementRef = useRef<HTMLDivElement>(null);
   const tableElementRef = useRef<HTMLTableElement>(null);
@@ -88,7 +90,8 @@ export function ScoreboardTable({
         const centeredScrollTop = getCenteredRowScrollTop(
           scrollElement,
           highlightedRowElement,
-          tableElement
+          tableElement,
+          visibleTeamsAboveHighlighted
         );
         const scrollDistance = centeredScrollTop - scrollElement.scrollTop;
         const previousHighlightedTeamId = previousHighlightedTeamIdRef.current;
@@ -105,6 +108,7 @@ export function ScoreboardTable({
               scrollElement,
               highlightedRowElement,
               tableElement,
+              visibleTeamsAboveHighlighted,
               settleCenterFrameRef
             );
           } else {
@@ -122,7 +126,7 @@ export function ScoreboardTable({
 
     previousRowTopsRef.current = nextRowTops;
     previousHighlightedTeamIdRef.current = highlightedTeamId;
-  }, [autoFollowHighlightedTeam, highlightedTeamId, teams]);
+  }, [autoFollowHighlightedTeam, highlightedTeamId, teams, visibleTeamsAboveHighlighted]);
 
   useEffect(() => {
     if (!lockUserScroll) {
@@ -179,7 +183,8 @@ export function ScoreboardTable({
       scrollElement.scrollTop = getCenteredRowScrollTop(
         scrollElement,
         highlightedRowElement,
-        tableElement
+        tableElement,
+        visibleTeamsAboveHighlighted
       );
     }
 
@@ -188,7 +193,7 @@ export function ScoreboardTable({
     return () => {
       window.removeEventListener("resize", handleResize);
     };
-  }, [autoFollowHighlightedTeam, highlightedTeamId]);
+  }, [autoFollowHighlightedTeam, highlightedTeamId, visibleTeamsAboveHighlighted]);
 
   function getRankCellClass(rank: number) {
     if (rank === 1) {
@@ -315,12 +320,16 @@ function getRowTopWithinScrollViewport(
 function getCenteredRowScrollTop(
   scrollElement: HTMLDivElement,
   rowElement: HTMLTableRowElement,
-  tableElement: HTMLTableElement | null
+  tableElement: HTMLTableElement | null,
+  visibleTeamsAboveHighlighted: number
 ): number {
   const rowTop = getRowTopWithinScrollViewport(rowElement, tableElement);
-  const rowHeight = rowElement.offsetHeight;
+  const rowSpacing = getRowSpacing(rowElement);
+  const stickyHeaderHeight = getStickyHeaderHeight(tableElement);
+  const desiredRowTop =
+    stickyHeaderHeight + Math.max(0, visibleTeamsAboveHighlighted) * rowSpacing;
   const targetScrollTop =
-    rowTop - (scrollElement.clientHeight - rowHeight) / 2;
+    rowTop - desiredRowTop;
 
   return clamp(
     targetScrollTop,
@@ -368,6 +377,7 @@ function scheduleImmediateRecenter(
   scrollElement: HTMLDivElement,
   rowElement: HTMLTableRowElement,
   tableElement: HTMLTableElement,
+  visibleTeamsAboveHighlighted: number,
   animationFrameRef: React.MutableRefObject<number | null>
 ) {
   stopAnimationFrame(animationFrameRef);
@@ -376,7 +386,8 @@ function scheduleImmediateRecenter(
     scrollElement.scrollTop = getCenteredRowScrollTop(
       scrollElement,
       rowElement,
-      tableElement
+      tableElement,
+      visibleTeamsAboveHighlighted
     );
     animationFrameRef.current = null;
   });
@@ -406,6 +417,23 @@ function stopAnimationFrame(
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+function getStickyHeaderHeight(tableElement: HTMLTableElement | null): number {
+  const headerRow =
+    tableElement?.tHead?.rows.item(0);
+
+  return headerRow?.getBoundingClientRect().height ?? 0;
+}
+
+function getRowSpacing(rowElement: HTMLTableRowElement): number {
+  const previousRowElement = rowElement.previousElementSibling;
+
+  if (previousRowElement instanceof HTMLTableRowElement) {
+    return Math.max(1, rowElement.offsetTop - previousRowElement.offsetTop);
+  }
+
+  return rowElement.getBoundingClientRect().height;
 }
 
 function createCubicBezierEasing(

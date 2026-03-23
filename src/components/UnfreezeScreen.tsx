@@ -130,6 +130,7 @@ export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
         lockUserScroll
         problems={unfreezeSnapshot.problems}
         teams={unfreezeSnapshot.teams}
+        visibleTeamsAboveHighlighted={5}
       />
     </div>
   );
