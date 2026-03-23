@@ -16,7 +16,6 @@ import {
 } from "./routes";
 import {
   cloneContestConfiguration,
-  createConfiguredContestPreview,
   createDefaultContestConfiguration,
   formatUtcSummary
 } from "../domain/contestConfiguration";
@@ -29,7 +28,6 @@ import { useContestSnapshot } from "../hooks/useContestSnapshot";
 import "./App.css";
 
 export function App() {
-  const { snapshot, loading, error } = useContestSnapshot();
   const [route, setRoute] = useState<AppRoute>(() =>
     parseAppRoute(window.location.pathname)
   );
@@ -40,13 +38,17 @@ export function App() {
   const [managedContests, setManagedContests] = useState<ManagedContest[]>(() =>
     createMockManagedContests()
   );
-  const previewSnapshot = useMemo(
-    () =>
-      snapshot
-        ? createConfiguredContestPreview(snapshot, configuration)
-        : null,
-    [snapshot, configuration]
-  );
+  const targetContest =
+    route.screen === "unfreeze"
+      ? managedContests.find((contest) => contest.id === route.contestId) ?? null
+      : null;
+  const activeConfiguration =
+    route.screen === "scoreboard"
+      ? configuration
+      : route.screen === "unfreeze"
+        ? targetContest?.configuration ?? null
+        : null;
+  const { snapshot, loading, error } = useContestSnapshot(activeConfiguration);
   const shareableScoreboardPath = useMemo(() => {
     const contestId = resolveContestId({
       contestUrl: configuration.contestUrl,
@@ -186,9 +188,6 @@ export function App() {
   }
 
   if (route.screen === "unfreeze") {
-    const targetContest =
-      managedContests.find((contest) => contest.id === route.contestId) ?? null;
-
     if (!targetContest) {
       return (
         <main className="app app--loading">
@@ -246,18 +245,10 @@ export function App() {
       );
     }
 
-    const unfreezeSnapshot = createConfiguredContestPreview(
-      snapshot,
-      targetContest.configuration
-    );
-
     return (
-      <main className="app">
+      <main className="app app--unfreeze">
         <div className="app__backdrop" />
-        <UnfreezeScreen
-          configuration={targetContest.configuration}
-          snapshot={unfreezeSnapshot}
-        />
+        <UnfreezeScreen snapshot={snapshot} />
       </main>
     );
   }
@@ -269,7 +260,7 @@ export function App() {
         <ContestSetupScreen
           configuration={configuration}
           shareableScoreboardPath={shareableScoreboardPath}
-          isScoreboardLoading={loading}
+          isScoreboardLoading={Boolean(configuration.contestUrl.trim()) && loading}
           scoreboardError={error}
           onChange={setConfiguration}
           onBack={() => navigate(HOME_PATH)}
@@ -298,7 +289,7 @@ export function App() {
     );
   }
 
-  if (error || !previewSnapshot) {
+  if (error || !snapshot) {
     return (
       <main className="app app--loading">
         <div className="app__backdrop" />
@@ -339,7 +330,7 @@ export function App() {
           <div className="scoreboard-toolbar__summary">
             <span className="scoreboard-toolbar__chip">Contest {route.contestId}</span>
             <span className="scoreboard-toolbar__chip">
-              {configuration.problems.length} problems
+              {snapshot.problems.length} problems
             </span>
             <span className="scoreboard-toolbar__chip">
               {formatUtcSummary(configuration.startAtUtc)}
@@ -349,28 +340,28 @@ export function App() {
 
         <div className="app__layout">
           <aside className="app__sidebar">
-            <TimerPanel snapshot={previewSnapshot} />
+            <TimerPanel snapshot={snapshot} />
             <RecentSubmissionsPanel
-              submissions={previewSnapshot.recentSubmissions}
-              teams={previewSnapshot.teams}
+              submissions={snapshot.recentSubmissions}
+              teams={snapshot.teams}
             />
           </aside>
           <section className="app__main">
             <header className="scoreboard-header">
               <div>
-                <p className="scoreboard-header__eyebrow">{previewSnapshot.contestName}</p>
-                <h1 className="scoreboard-header__title">{previewSnapshot.regionName}</h1>
+                <p className="scoreboard-header__eyebrow">{snapshot.contestName}</p>
+                <h1 className="scoreboard-header__title">{snapshot.regionName}</h1>
               </div>
             </header>
 
             <ScoreboardTable
-              problems={previewSnapshot.problems}
-              teams={previewSnapshot.teams}
+              problems={snapshot.problems}
+              teams={snapshot.teams}
             />
 
             <footer className="scoreboard-footer">
-              <span>{previewSnapshot.freezeLabel}</span>
-              <span>{previewSnapshot.updatedAtLabel}</span>
+              <span>{snapshot.freezeLabel}</span>
+              <span>{snapshot.updatedAtLabel}</span>
             </footer>
           </section>
         </div>

@@ -1,34 +1,60 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ScoreboardTable } from "./ScoreboardTable";
-import { ContestConfiguration } from "../domain/contestConfiguration";
 import { ContestSnapshot } from "../domain/types";
-import {
-  applyUnfreezeProgress,
-  buildUnfreezeRevealEvents
-} from "../domain/unfreezeSimulation";
+import { applyUnfreezeProgress, buildUnfreezeRevealEvents } from "../domain/unfreezeSimulation";
 import "./UnfreezeScreen.css";
 
 interface UnfreezeScreenProps {
-  configuration: ContestConfiguration;
   snapshot: ContestSnapshot;
 }
 
-export function UnfreezeScreen({
-  configuration,
-  snapshot
-}: UnfreezeScreenProps) {
+export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
   const revealEvents = useMemo(() => buildUnfreezeRevealEvents(snapshot), [snapshot]);
   const [revealCount, setRevealCount] = useState(0);
-  const unfreezeSnapshot = useMemo(
+  const unfreezeProgress = useMemo(
     () => applyUnfreezeProgress(snapshot, revealEvents, revealCount),
     [snapshot, revealCount, revealEvents]
   );
-  const completed = revealCount >= revealEvents.length;
+  const unfreezeSnapshot = unfreezeProgress.snapshot;
+  const canStepBackward = revealCount > 0;
+  const canStepForward = revealCount < revealEvents.length;
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (
+        event.defaultPrevented ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        isEditableEventTarget(event.target)
+      ) {
+        return;
+      }
+
+      if (event.key === "ArrowRight" && canStepForward) {
+        event.preventDefault();
+        setRevealCount((currentCount) =>
+          Math.min(currentCount + 1, revealEvents.length)
+        );
+      }
+
+      if (event.key === "ArrowLeft" && canStepBackward) {
+        event.preventDefault();
+        setRevealCount((currentCount) => Math.max(currentCount - 1, 0));
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [canStepBackward, canStepForward, revealEvents.length]);
 
   return (
     <div className="unfreeze-shell">
       <header className="unfreeze-header">
-        <h1 className="unfreeze-header__title">{configuration.contestName}</h1>
+        <h1 className="unfreeze-header__title">{snapshot.regionName}</h1>
         <div className="unfreeze-controls">
           <button
             className="secondary-button"
@@ -38,9 +64,9 @@ export function UnfreezeScreen({
                 Math.max(currentCount - 1, 0)
               )
             }
-            disabled={revealCount === 0}
+            disabled={!canStepBackward}
           >
-            Go Back One Submission
+            Go Back
           </button>
           <button
             className="setup-submit-panel__button unfreeze-controls__primary"
@@ -50,9 +76,9 @@ export function UnfreezeScreen({
                 Math.min(currentCount + 1, revealEvents.length)
               )
             }
-            disabled={completed}
+            disabled={!canStepForward}
           >
-            {completed ? "Unfreeze Complete" : "Unfreeze Next Submission"}
+            Next Submission
           </button>
           <button
             className="secondary-button"
@@ -66,9 +92,27 @@ export function UnfreezeScreen({
       </header>
 
       <ScoreboardTable
+        autoFollowHighlightedTeam
+        fillViewport
+        highlightedTeamId={unfreezeProgress.currentTeamId}
+        lockUserScroll
         problems={unfreezeSnapshot.problems}
         teams={unfreezeSnapshot.teams}
+        visibleTeamsAboveHighlighted={5}
       />
     </div>
   );
+}
+
+function isEditableEventTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (target.isContentEditable) {
+    return true;
+  }
+
+  const editableAncestor = target.closest("input, textarea, select, [contenteditable='true']");
+  return editableAncestor !== null;
 }

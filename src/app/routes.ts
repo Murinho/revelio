@@ -175,7 +175,8 @@ export function extractContestIdFromContestUrl(contestUrl: string): string | nul
 
   const pathSegments = parsedUrl.pathname.split("/").filter(Boolean);
   const contestKeywordIndex = pathSegments.findIndex(
-    (segment) => segment.toLowerCase() === "contest"
+    (segment) =>
+      segment.toLowerCase() === "contest" || segment.toLowerCase() === "gym"
   );
 
   if (contestKeywordIndex >= 0) {

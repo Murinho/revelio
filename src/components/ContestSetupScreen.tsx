@@ -39,12 +39,15 @@ export function ContestSetupScreen({
   const hasCredentials =
     configuration.codeforces.apiKey.trim().length > 0 &&
     configuration.codeforces.apiSecret.trim().length > 0;
+  const hasContestUrl = configuration.contestUrl.trim().length > 0;
   const shareableScoreboardUrl = `${window.location.origin}${shareableScoreboardPath}`;
   const scoreboardStatus = scoreboardError
-    ? "The scoreboard preview feed is unavailable right now, but the setup state is ready for a future backend connection."
+    ? "The contest feed could not be loaded from Codeforces. Double-check the URL or fall back to the mock preview for layout work."
     : isScoreboardLoading
-      ? "The scoreboard preview is still loading mock standings. You can continue configuring and open it as soon as it is ready."
-      : "The scoreboard preview is ready and will reflect your contest title, timing, problem count, and balloon palette.";
+      ? "The scoreboard is loading live Codeforces standings and submissions. You can keep adjusting the setup while it finishes."
+      : hasContestUrl
+        ? "The scoreboard will use the public Codeforces contest data behind this URL and apply your freeze window and balloon colors."
+        : "The scoreboard preview is ready with mock data and will reflect your contest title, timing, problem count, and balloon palette.";
 
   function updateField<K extends keyof ContestConfiguration>(
     field: K,
@@ -278,7 +281,7 @@ export function ContestSetupScreen({
                     type="url"
                     value={configuration.contestUrl}
                     onChange={(event) => updateField("contestUrl", event.target.value)}
-                    placeholder="https://codeforces.com/group/.../contest/..."
+                    placeholder="https://codeforces.com/gym/106416"
                     autoComplete="off"
                   />
                 </label>
