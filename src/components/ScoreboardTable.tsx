@@ -9,7 +9,7 @@ interface ScoreboardTableProps {
   highlightedTeamId?: string | null;
 }
 
-const ROW_REORDER_DURATION_MS = 700;
+const ROW_REORDER_DURATION_MS = 1500;
 const ROW_REORDER_EASING = "cubic-bezier(0.65, 0, 0.35, 1)";
 
 export function ScoreboardTable({
