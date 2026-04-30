@@ -11,6 +11,7 @@ interface ScoreboardTableProps {
   lockUserScroll?: boolean;
   fillViewport?: boolean;
   visibleTeamsAboveHighlighted?: number;
+  elapsedContestMinutes?: number;
 }
 
 const ROW_REORDER_DURATION_MS = 1500;
@@ -27,7 +28,8 @@ export function ScoreboardTable({
   autoFollowHighlightedTeam = false,
   lockUserScroll = false,
   fillViewport = false,
-  visibleTeamsAboveHighlighted = 0
+  visibleTeamsAboveHighlighted = 0,
+  elapsedContestMinutes
 }: ScoreboardTableProps) {
   const scrollElementRef = useRef<HTMLDivElement>(null);
   const tableElementRef = useRef<HTMLTableElement>(null);
@@ -291,7 +293,11 @@ export function ScoreboardTable({
                     className="scoreboard-table__cell scoreboard-table__cell--problem"
                     key={`${team.id}-${cell.problemId}`}
                   >
-                    <ProblemCell cell={cell} problem={problems[index]} />
+                    <ProblemCell
+                      cell={cell}
+                      elapsedContestMinutes={elapsedContestMinutes}
+                      problem={problems[index]}
+                    />
                   </td>
                 ))}
               </tr>

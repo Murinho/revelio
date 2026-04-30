@@ -24,6 +24,7 @@ import {
   createMockManagedContests,
   ManagedContest
 } from "../domain/managedContest";
+import { useContestClock } from "../hooks/useContestClock";
 import { useContestSnapshot } from "../hooks/useContestSnapshot";
 import "./App.css";
 
@@ -49,6 +50,7 @@ export function App() {
         ? targetContest?.configuration ?? null
         : null;
   const { snapshot, loading, error } = useContestSnapshot(activeConfiguration);
+  const contestClock = useContestClock(activeConfiguration);
   const shareableScoreboardPath = useMemo(() => {
     const contestId = resolveContestId({
       contestUrl: configuration.contestUrl,
@@ -340,7 +342,7 @@ export function App() {
 
         <div className="app__layout">
           <aside className="app__sidebar">
-            <TimerPanel snapshot={snapshot} />
+            <TimerPanel clock={contestClock} snapshot={snapshot} />
             <RecentSubmissionsPanel
               submissions={snapshot.recentSubmissions}
               teams={snapshot.teams}
@@ -355,6 +357,7 @@ export function App() {
             </header>
 
             <ScoreboardTable
+              elapsedContestMinutes={contestClock.elapsedMinutes}
               problems={snapshot.problems}
               teams={snapshot.teams}
             />

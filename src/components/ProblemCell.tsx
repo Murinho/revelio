@@ -3,10 +3,15 @@ import { ProblemCellState, ProblemMeta } from "../domain/types";
 
 interface ProblemCellProps {
   cell: ProblemCellState;
+  elapsedContestMinutes?: number;
   problem: ProblemMeta;
 }
 
-export function ProblemCell({ cell, problem }: ProblemCellProps) {
+export function ProblemCell({
+  cell,
+  elapsedContestMinutes,
+  problem
+}: ProblemCellProps) {
   if (cell.kind === "untouched") {
     return (
       <div
@@ -45,9 +50,22 @@ export function ProblemCell({ cell, problem }: ProblemCellProps) {
     );
   }
 
+  const isFirstToSolveActive =
+    cell.firstToSolve &&
+    elapsedContestMinutes !== undefined &&
+    elapsedContestMinutes >= cell.solveTime;
+  const solvedClassName = [
+    "problem-cell",
+    "problem-cell--solved",
+    cell.firstToSolve ? "problem-cell--first-to-solve" : "",
+    isFirstToSolveActive ? "problem-cell--first-to-solve-active" : ""
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div
-      className="problem-cell problem-cell--solved"
+      className={solvedClassName}
       title={`Problem ${cell.problemLabel}: solved`}
     >
       <div
