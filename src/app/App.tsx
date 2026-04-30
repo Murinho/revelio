@@ -17,7 +17,7 @@ import {
 import {
   cloneContestConfiguration,
   createDefaultContestConfiguration,
-  formatUtcSummary
+  formatLocalStartSummary
 } from "../domain/contestConfiguration";
 import {
   createManagedContest,
@@ -333,7 +333,7 @@ export function App() {
               {snapshot.problems.length} problems
             </span>
             <span className="scoreboard-toolbar__chip">
-              {formatUtcSummary(configuration.startAtUtc)}
+              {formatLocalStartSummary(configuration.startAtUtc)}
             </span>
           </div>
         </header>

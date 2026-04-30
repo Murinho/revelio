@@ -6,7 +6,8 @@ import {
 } from "../domain/managedContest";
 import {
   formatDurationClock,
-  formatUtcSummary
+  formatLocalStartSummary,
+  parseUtcDateTimeInputValue
 } from "../domain/contestConfiguration";
 import { buildScoreboardPath } from "../app/routes";
 import "./MainMenuScreen.css";
@@ -212,7 +213,7 @@ function ContestSection({
                     {contest.configuration.contestName}
                   </strong>
                   <span className="menu-contest-row__meta">
-                    {formatUtcSummary(contest.configuration.startAtUtc)}
+                    {formatLocalStartSummary(contest.configuration.startAtUtc)}
                   </span>
                 </div>
 
@@ -275,8 +276,12 @@ function sortContests(
   bucket: ContestTimelineBucket
 ): ManagedContest[] {
   return [...contests].sort((leftContest, rightContest) => {
-    const leftStart = Date.parse(`${leftContest.configuration.startAtUtc}:00Z`);
-    const rightStart = Date.parse(`${rightContest.configuration.startAtUtc}:00Z`);
+    const leftStart =
+      parseUtcDateTimeInputValue(leftContest.configuration.startAtUtc)?.getTime() ??
+      Number.MAX_SAFE_INTEGER;
+    const rightStart =
+      parseUtcDateTimeInputValue(rightContest.configuration.startAtUtc)?.getTime() ??
+      Number.MAX_SAFE_INTEGER;
 
     if (bucket === "past") {
       return rightStart - leftStart;

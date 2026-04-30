@@ -4,8 +4,11 @@ import {
   ContestConfiguration,
   MAX_PROBLEM_COUNT,
   formatFreezeWindowLabel,
-  formatUtcSummary,
-  resizeContestProblems
+  formatLocalStartSummary,
+  formatLocalUtcOffset,
+  resizeContestProblems,
+  toLocalStartDateTimeInputValue,
+  toUtcStartDateTimeInputValue
 } from "../domain/contestConfiguration";
 import { Panel } from "./Panel";
 import "./ContestSetupScreen.css";
@@ -41,6 +44,8 @@ export function ContestSetupScreen({
     configuration.codeforces.apiSecret.trim().length > 0;
   const hasContestUrl = configuration.contestUrl.trim().length > 0;
   const shareableScoreboardUrl = `${window.location.origin}${shareableScoreboardPath}`;
+  const localStartAt = toLocalStartDateTimeInputValue(configuration.startAtUtc);
+  const localUtcOffset = formatLocalUtcOffset(configuration.startAtUtc);
   const scoreboardStatus = scoreboardError
     ? "The contest feed could not be loaded from Codeforces. Double-check the URL or fall back to the mock preview for layout work."
     : isScoreboardLoading
@@ -141,7 +146,7 @@ export function ContestSetupScreen({
             <p className="setup-hero-panel__eyebrow">Revelio</p>
             <h1 className="setup-hero-panel__title">Create Contest</h1>
             <p className="setup-hero-panel__description">
-              Configure the contest identity, UTC timing, balloon palette, and
+              Configure the contest identity, local timing, balloon palette, and
               Codeforces credentials from one polished launch surface.
             </p>
 
@@ -177,7 +182,7 @@ export function ContestSetupScreen({
             <div className="setup-summary-row">
               <span className="setup-summary-row__label">Start</span>
               <strong className="setup-summary-row__value">
-                {formatUtcSummary(configuration.startAtUtc)}
+                {formatLocalStartSummary(configuration.startAtUtc)}
               </strong>
             </div>
             <div className="setup-summary-row">
@@ -295,17 +300,22 @@ export function ContestSetupScreen({
                     Start date and time of the contest
                   </span>
                   <span className="setup-field__hint">
-                    Stored in UTC to stay aligned with device time and future API
-                    timestamps.
+                    Use your local timezone. Revelio stores the converted UTC time for
+                    backend and API timestamps.
                   </span>
                   <div className="setup-input-wrap">
                     <input
                       className="setup-input"
                       type="datetime-local"
-                      value={configuration.startAtUtc}
-                      onChange={(event) => updateField("startAtUtc", event.target.value)}
+                      value={localStartAt}
+                      onChange={(event) =>
+                        updateField(
+                          "startAtUtc",
+                          toUtcStartDateTimeInputValue(event.target.value)
+                        )
+                      }
                     />
-                    <span className="setup-input-wrap__badge">UTC</span>
+                    <span className="setup-input-wrap__badge">{localUtcOffset}</span>
                   </div>
                 </label>
 
