@@ -113,6 +113,11 @@ const NON_PENALIZED_VERDICTS = new Set([
   "SUBMITTED",
   "TESTING"
 ]);
+const INCLUDED_PARTICIPANT_TYPES: CodeforcesParticipantType[] = [
+  "CONTESTANT",
+  "VIRTUAL"
+];
+const INCLUDED_PARTICIPANT_TYPE_SET = new Set(INCLUDED_PARTICIPANT_TYPES);
 
 const contestDataCache = new Map<string, Promise<CodeforcesContestData>>();
 
@@ -214,7 +219,7 @@ async function fetchCodeforcesContestData(
 
   if (selectedRows.rows.length === 0) {
     throw new Error(
-      "Codeforces returned no virtual participants for this contest."
+      "Codeforces returned no contestants or virtual participants for this contest."
     );
   }
 
@@ -229,7 +234,7 @@ async function fetchCodeforcesContestData(
       const participantKey = getPartyKey(submission.author);
 
       return (
-        submission.author.participantType === "VIRTUAL" &&
+        isIncludedParticipantType(submission.author.participantType) &&
         participantKey !== null &&
         participantKeys.has(participantKey)
       );
@@ -261,6 +266,7 @@ async function loadStandingsResult(
         from,
         count: CODEFORCES_PAGE_SIZE,
         showUnofficial: true,
+        participantTypes: INCLUDED_PARTICIPANT_TYPES.join(","),
         lang: "en"
       },
       credentials
@@ -359,7 +365,7 @@ function buildContestSnapshot(
     teams,
     recentSubmissions: buildRecentSubmissions(teams),
     updatedAtLabel:
-      "Loaded from Codeforces contest.standings and contest.status for virtual participants only"
+      "Loaded from Codeforces contest.standings and contest.status for contestants and virtual participants"
   };
 }
 
@@ -604,8 +610,14 @@ function selectRelevantRows(rows: CodeforcesRanklistRow[]): {
   rows: CodeforcesRanklistRow[];
 } {
   return {
-    rows: rows.filter((row) => row.party.participantType === "VIRTUAL")
+    rows: rows.filter((row) => isIncludedParticipantType(row.party.participantType))
   };
+}
+
+function isIncludedParticipantType(
+  participantType: CodeforcesParticipantType
+): boolean {
+  return INCLUDED_PARTICIPANT_TYPE_SET.has(participantType);
 }
 
 function getPartyKey(party: CodeforcesParty): string | null {
