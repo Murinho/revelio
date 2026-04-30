@@ -51,7 +51,9 @@ export function ContestSetupScreen({
     : isScoreboardLoading
       ? "The scoreboard is loading live Codeforces standings and submissions. You can keep adjusting the setup while it finishes."
       : hasContestUrl
-        ? "The scoreboard will use the public Codeforces contest data behind this URL and apply your freeze window and balloon colors."
+        ? hasCredentials
+          ? "The scoreboard will use signed Codeforces contest data behind this URL and apply your freeze window and balloon colors."
+          : "Enter Codeforces API credentials to load the live standings and submissions behind this URL."
         : "The scoreboard preview is ready with mock data and will reflect your contest title, timing, problem count, and balloon palette.";
 
   function updateField<K extends keyof ContestConfiguration>(
@@ -425,8 +427,8 @@ export function ContestSetupScreen({
                 <label className="setup-field setup-field--full">
                   <span className="setup-field__label">API Key</span>
                   <span className="setup-field__hint">
-                    Reserved for private mashup authentication once the backend is
-                    connected.
+                    Used to sign Codeforces API calls for restricted gyms and
+                    private mashups.
                   </span>
                   <input
                     className="setup-input setup-input--token"
@@ -441,8 +443,8 @@ export function ContestSetupScreen({
                 <label className="setup-field setup-field--full">
                   <span className="setup-field__label">API Secret</span>
                   <span className="setup-field__hint">
-                    Kept separate so future service calls can map credentials without
-                    reshaping the form state.
+                    Combined with the key locally to generate the Codeforces request
+                    signature.
                   </span>
                   <input
                     className="setup-input setup-input--token"

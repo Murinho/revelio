@@ -1,5 +1,6 @@
 import {
   ContestConfiguration,
+  ContestCodeforcesCredentials,
   formatDurationClock,
   formatFreezeWindowLabel
 } from "../domain/contestConfiguration";
@@ -113,7 +114,7 @@ const NON_PENALIZED_VERDICTS = new Set([
   "TESTING"
 ]);
 
-const contestDataCache = new Map<number, Promise<CodeforcesContestData>>();
+const contestDataCache = new Map<string, Promise<CodeforcesContestData>>();
 
 export function createCodeforcesContestGateway(): ContestGateway {
   return {
@@ -124,7 +125,10 @@ export function createCodeforcesContestGateway(): ContestGateway {
         throw new Error("Enter a valid Codeforces contest or gym URL.");
       }
 
-      const contestData = await loadCodeforcesContestData(contestId);
+      const contestData = await loadCodeforcesContestData(
+        contestId,
+        configuration.codeforces
+      );
       return buildContestSnapshot(configuration, contestData);
     }
   };
@@ -179,24 +183,33 @@ export function extractCodeforcesContestId(contestUrl: string): number | null {
   return null;
 }
 
-async function loadCodeforcesContestData(contestId: number): Promise<CodeforcesContestData> {
-  const cachedContest = contestDataCache.get(contestId);
+async function loadCodeforcesContestData(
+  contestId: number,
+  credentials: ContestCodeforcesCredentials
+): Promise<CodeforcesContestData> {
+  const cacheKey = buildContestDataCacheKey(contestId, credentials);
+  const cachedContest = contestDataCache.get(cacheKey);
 
   if (cachedContest) {
     return cachedContest;
   }
 
-  const contestPromise = fetchCodeforcesContestData(contestId).catch((error) => {
-    contestDataCache.delete(contestId);
-    throw error;
-  });
+  const contestPromise = fetchCodeforcesContestData(contestId, credentials).catch(
+    (error) => {
+      contestDataCache.delete(cacheKey);
+      throw error;
+    }
+  );
 
-  contestDataCache.set(contestId, contestPromise);
+  contestDataCache.set(cacheKey, contestPromise);
   return contestPromise;
 }
 
-async function fetchCodeforcesContestData(contestId: number): Promise<CodeforcesContestData> {
-  const standingsResult = await loadStandingsResult(contestId);
+async function fetchCodeforcesContestData(
+  contestId: number,
+  credentials: ContestCodeforcesCredentials
+): Promise<CodeforcesContestData> {
+  const standingsResult = await loadStandingsResult(contestId, credentials);
   const selectedRows = selectRelevantRows(standingsResult.rows);
 
   if (selectedRows.rows.length === 0) {
@@ -211,15 +224,17 @@ async function fetchCodeforcesContestData(contestId: number): Promise<Codeforces
       .filter((key): key is string => key !== null)
   );
 
-  const submissions = (await loadContestSubmissions(contestId)).filter((submission) => {
-    const participantKey = getPartyKey(submission.author);
+  const submissions = (await loadContestSubmissions(contestId, credentials)).filter(
+    (submission) => {
+      const participantKey = getPartyKey(submission.author);
 
-    return (
-      submission.author.participantType === "VIRTUAL" &&
-      participantKey !== null &&
-      participantKeys.has(participantKey)
-    );
-  });
+      return (
+        submission.author.participantType === "VIRTUAL" &&
+        participantKey !== null &&
+        participantKeys.has(participantKey)
+      );
+    }
+  );
 
   return {
     contest: standingsResult.contest,
@@ -229,7 +244,10 @@ async function fetchCodeforcesContestData(contestId: number): Promise<Codeforces
   };
 }
 
-async function loadStandingsResult(contestId: number): Promise<CodeforcesStandingsResult> {
+async function loadStandingsResult(
+  contestId: number,
+  credentials: ContestCodeforcesCredentials
+): Promise<CodeforcesStandingsResult> {
   let from = 1;
   let contest: CodeforcesContest | null = null;
   let problems: CodeforcesProblem[] = [];
@@ -244,7 +262,8 @@ async function loadStandingsResult(contestId: number): Promise<CodeforcesStandin
         count: CODEFORCES_PAGE_SIZE,
         showUnofficial: true,
         lang: "en"
-      }
+      },
+      credentials
     );
 
     contest = contest ?? result.contest;
@@ -266,17 +285,24 @@ async function loadStandingsResult(contestId: number): Promise<CodeforcesStandin
   }
 }
 
-async function loadContestSubmissions(contestId: number): Promise<CodeforcesSubmission[]> {
+async function loadContestSubmissions(
+  contestId: number,
+  credentials: ContestCodeforcesCredentials
+): Promise<CodeforcesSubmission[]> {
   let from = 1;
   const submissions: CodeforcesSubmission[] = [];
 
   while (true) {
-    const result = await requestCodeforcesApi<CodeforcesSubmission[]>("contest.status", {
-      contestId,
-      from,
-      count: CODEFORCES_PAGE_SIZE,
-      lang: "en"
-    });
+    const result = await requestCodeforcesApi<CodeforcesSubmission[]>(
+      "contest.status",
+      {
+        contestId,
+        from,
+        count: CODEFORCES_PAGE_SIZE,
+        lang: "en"
+      },
+      credentials
+    );
 
     submissions.push(...result);
 
@@ -286,6 +312,15 @@ async function loadContestSubmissions(contestId: number): Promise<CodeforcesSubm
 
     from += CODEFORCES_PAGE_SIZE;
   }
+}
+
+function buildContestDataCacheKey(
+  contestId: number,
+  credentials: ContestCodeforcesCredentials
+): string {
+  const apiKey = credentials.apiKey.trim();
+
+  return apiKey ? `${contestId}:authenticated:${apiKey}` : `${contestId}:anonymous`;
 }
 
 function buildContestSnapshot(
