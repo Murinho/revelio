@@ -12,7 +12,7 @@ export function TimerPanel({ clock, snapshot }: TimerPanelProps) {
     <Panel title="Contest Timer">
       <div className={`timer-panel timer-panel--${clock.phase}`}>
         <div className="timer-panel__mode-icon" aria-hidden="true">
-          {clock.phase === "frozen" ? <FrozenIcon /> : <PlayIcon />}
+          {clock.phase === "play" ? <PlayIcon /> : <FrozenIcon />}
         </div>
         <div className="timer-panel__clock" aria-label="Contest elapsed time">
           {clock.timeLabel}
