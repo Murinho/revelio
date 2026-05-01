@@ -36,7 +36,13 @@ function PlayIcon() {
         stroke="currentColor"
         strokeWidth="4"
       />
-      <path d="M27 21v22l18-11-18-11Z" fill="currentColor" />
+      <path
+        d="M20 13v38l31-19-31-19Z"
+        fill="currentColor"
+        stroke="currentColor"
+        strokeWidth="4"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

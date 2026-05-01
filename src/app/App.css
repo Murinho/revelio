@@ -233,10 +233,6 @@
   height: 80px;
 }
 
-.timer-panel--play .timer-panel__mode-svg {
-  animation: timer-play-pulse 1.8s ease-in-out infinite;
-}
-
 .timer-panel--play .timer-panel__play-ring {
   display: none;
 }
@@ -288,19 +284,6 @@
 .timer-panel--complete .timer-panel__phase {
   background: rgba(255, 222, 60, 0.14);
   color: #fff3a7;
-}
-
-@keyframes timer-play-pulse {
-  0%,
-  100% {
-    opacity: 0.78;
-    transform: scale(0.96);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1.04);
-  }
 }
 
 .submission-list {
