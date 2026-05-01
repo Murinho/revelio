@@ -11,7 +11,7 @@ interface ScoreboardTableProps {
   lockUserScroll?: boolean;
   fillViewport?: boolean;
   visibleTeamsAboveHighlighted?: number;
-  elapsedContestMinutes?: number;
+  firstToSolveTwinkleMinute?: number | null;
 }
 
 const ROW_REORDER_DURATION_MS = 1500;
@@ -29,7 +29,7 @@ export function ScoreboardTable({
   lockUserScroll = false,
   fillViewport = false,
   visibleTeamsAboveHighlighted = 0,
-  elapsedContestMinutes
+  firstToSolveTwinkleMinute = null
 }: ScoreboardTableProps) {
   const scrollElementRef = useRef<HTMLDivElement>(null);
   const tableElementRef = useRef<HTMLTableElement>(null);
@@ -295,7 +295,7 @@ export function ScoreboardTable({
                   >
                     <ProblemCell
                       cell={cell}
-                      elapsedContestMinutes={elapsedContestMinutes}
+                      firstToSolveTwinkleMinute={firstToSolveTwinkleMinute}
                       problem={problems[index]}
                     />
                   </td>

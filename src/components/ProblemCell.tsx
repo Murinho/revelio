@@ -3,13 +3,13 @@ import { ProblemCellState, ProblemMeta } from "../domain/types";
 
 interface ProblemCellProps {
   cell: ProblemCellState;
-  elapsedContestMinutes?: number;
+  firstToSolveTwinkleMinute?: number | null;
   problem: ProblemMeta;
 }
 
 export function ProblemCell({
   cell,
-  elapsedContestMinutes,
+  firstToSolveTwinkleMinute = null,
   problem
 }: ProblemCellProps) {
   if (cell.kind === "untouched") {
@@ -50,15 +50,13 @@ export function ProblemCell({
     );
   }
 
-  const isFirstToSolveActive =
-    cell.firstToSolve &&
-    elapsedContestMinutes !== undefined &&
-    elapsedContestMinutes >= cell.solveTime;
+  const shouldTwinkleFirstToSolve =
+    cell.firstToSolve && firstToSolveTwinkleMinute !== null;
   const solvedClassName = [
     "problem-cell",
     "problem-cell--solved",
     cell.firstToSolve ? "problem-cell--first-to-solve" : "",
-    isFirstToSolveActive ? "problem-cell--first-to-solve-active" : ""
+    shouldTwinkleFirstToSolve ? "problem-cell--first-to-solve-twinkle" : ""
   ]
     .filter(Boolean)
     .join(" ");

@@ -51,6 +51,10 @@ export function App() {
         : null;
   const { snapshot, loading, error } = useContestSnapshot(activeConfiguration);
   const contestClock = useContestClock(activeConfiguration);
+  const firstToSolveTwinkleMinute = getFirstToSolveTwinkleMinute(
+    contestClock.elapsedSeconds,
+    contestClock.phase
+  );
   const shareableScoreboardPath = useMemo(() => {
     const contestId = resolveContestId({
       contestUrl: configuration.contestUrl,
@@ -357,7 +361,7 @@ export function App() {
             </header>
 
             <ScoreboardTable
-              elapsedContestMinutes={contestClock.elapsedMinutes}
+              firstToSolveTwinkleMinute={firstToSolveTwinkleMinute}
               problems={snapshot.problems}
               teams={snapshot.teams}
             />
@@ -371,4 +375,23 @@ export function App() {
       </div>
     </main>
   );
+}
+
+function getFirstToSolveTwinkleMinute(
+  elapsedSeconds: number,
+  phase: ReturnType<typeof useContestClock>["phase"]
+): number | null {
+  const isContestRunning = phase === "play" || phase === "frozen";
+
+  if (!isContestRunning || elapsedSeconds < 60) {
+    return null;
+  }
+
+  const secondsSinceFullMinute = elapsedSeconds % 60;
+
+  if (secondsSinceFullMinute >= 5) {
+    return null;
+  }
+
+  return Math.floor(elapsedSeconds / 60);
 }
