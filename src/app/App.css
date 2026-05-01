@@ -272,8 +272,8 @@
 }
 
 .timer-panel--play .timer-panel__phase {
-  background: rgba(87, 242, 175, 0.14);
-  color: #b9ffdf;
+  background: rgba(47, 192, 255, 0.14);
+  color: #f8b020;
 }
 
 .timer-panel--frozen .timer-panel__phase {
@@ -282,8 +282,8 @@
 }
 
 .timer-panel--complete .timer-panel__phase {
-  background: rgba(255, 222, 60, 0.14);
-  color: #fff3a7;
+  background: rgba(47, 192, 255, 0.14);
+  color: #57f2af;
 }
 
 .submission-list {
