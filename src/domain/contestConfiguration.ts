@@ -123,6 +123,19 @@ export function formatLocalStartSummary(startAtUtc: string): string {
   return `${toLocalDateTimeInputValue(startDate).replace("T", " ")} ${formatUtcOffset(startDate)}`;
 }
 
+export function formatLocalEndSummary(
+  startAtUtc: string,
+  durationMinutes: number
+): string {
+  const endDate = calculateContestEndDate(startAtUtc, durationMinutes);
+
+  if (!endDate) {
+    return "End time pending";
+  }
+
+  return `${toLocalDateTimeInputValue(endDate).replace("T", " ")} ${formatUtcOffset(endDate)}`;
+}
+
 export function formatLocalUtcOffset(startAtUtc: string): string {
   return formatUtcOffset(parseUtcDateTimeInputValue(startAtUtc) ?? new Date());
 }
@@ -133,6 +146,15 @@ export function toLocalStartDateTimeInputValue(startAtUtc: string): string {
   return startDate ? toLocalDateTimeInputValue(startDate) : "";
 }
 
+export function toLocalEndDateTimeInputValue(
+  startAtUtc: string,
+  durationMinutes: number
+): string {
+  const endDate = calculateContestEndDate(startAtUtc, durationMinutes);
+
+  return endDate ? toLocalDateTimeInputValue(endDate) : "";
+}
+
 export function toUtcStartDateTimeInputValue(localStartAt: string): string {
   if (!localStartAt) {
     return "";
@@ -141,6 +163,37 @@ export function toUtcStartDateTimeInputValue(localStartAt: string): string {
   const localDate = parseLocalDateTimeInputValue(localStartAt);
 
   return localDate ? toUtcDateTimeInputValue(localDate) : "";
+}
+
+export function calculateContestEndDate(
+  startAtUtc: string,
+  durationMinutes: number
+): Date | null {
+  const startDate = parseUtcDateTimeInputValue(startAtUtc);
+
+  if (!startDate || !Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+    return null;
+  }
+
+  return new Date(startDate.getTime() + Math.floor(durationMinutes) * 60_000);
+}
+
+export function calculateDurationMinutesFromLocalEndDateTimeInputValue(
+  startAtUtc: string,
+  localEndAt: string
+): number | null {
+  const startDate = parseUtcDateTimeInputValue(startAtUtc);
+  const endDate = parseLocalDateTimeInputValue(localEndAt);
+
+  if (!startDate || !endDate) {
+    return null;
+  }
+
+  const durationMinutes = Math.round(
+    (endDate.getTime() - startDate.getTime()) / 60_000
+  );
+
+  return durationMinutes > 0 ? durationMinutes : null;
 }
 
 export function parseUtcDateTimeInputValue(value: string): Date | null {
@@ -232,7 +285,9 @@ function parseLocalDateTimeInputValue(value: string): Date | null {
   if (
     parsedDate.getFullYear() !== year ||
     parsedDate.getMonth() !== month - 1 ||
-    parsedDate.getDate() !== day
+    parsedDate.getDate() !== day ||
+    parsedDate.getHours() !== hours ||
+    parsedDate.getMinutes() !== minutes
   ) {
     return null;
   }
