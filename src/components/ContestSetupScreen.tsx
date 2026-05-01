@@ -426,10 +426,6 @@ export function ContestSetupScreen({
               <div className="setup-fields">
                 <label className="setup-field setup-field--full">
                   <span className="setup-field__label">API Key</span>
-                  <span className="setup-field__hint">
-                    Used to sign Codeforces API calls for restricted gyms and
-                    private mashups.
-                  </span>
                   <input
                     className="setup-input setup-input--token"
                     type="text"
@@ -442,10 +438,6 @@ export function ContestSetupScreen({
 
                 <label className="setup-field setup-field--full">
                   <span className="setup-field__label">API Secret</span>
-                  <span className="setup-field__hint">
-                    Combined with the key locally to generate the Codeforces request
-                    signature.
-                  </span>
                   <input
                     className="setup-input setup-input--token"
                     type="password"
