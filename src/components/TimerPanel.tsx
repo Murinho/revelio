@@ -28,6 +28,7 @@ function PlayIcon() {
   return (
     <svg viewBox="0 0 64 64" className="timer-panel__mode-svg">
       <circle
+        className="timer-panel__play-ring"
         cx="32"
         cy="32"
         r="24"

@@ -218,6 +218,11 @@
   filter: drop-shadow(0 0 10px rgba(47, 192, 255, 0.25));
 }
 
+.timer-panel--play .timer-panel__mode-icon {
+  color: #ffea00;
+  filter: drop-shadow(0 0 12px rgba(255, 234, 0, 0.32));
+}
+
 .timer-panel--complete .timer-panel__mode-icon {
   color: #ffde3c;
   filter: drop-shadow(0 0 10px rgba(255, 222, 60, 0.25));
@@ -232,6 +237,10 @@
   animation: timer-play-pulse 1.8s ease-in-out infinite;
 }
 
+.timer-panel--play .timer-panel__play-ring {
+  display: none;
+}
+
 .timer-panel__clock {
   font-family: "Consolas", "Courier New", monospace;
   font-size: clamp(5.3rem, 4vw, 5.3rem);
@@ -240,6 +249,11 @@
   margin-bottom: 0.28rem;
   color: #2fc0ff;
   text-shadow: 0 0 16px rgba(47, 192, 255, 0.3);
+}
+
+.timer-panel--play .timer-panel__clock {
+  color: #ffea00;
+  text-shadow: 0 0 18px rgba(255, 234, 0, 0.36);
 }
 
 .timer-panel__freeze {
