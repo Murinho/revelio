@@ -63,7 +63,7 @@ export interface PendingRevealOutcome {
 export interface HiddenSubmission {
   id: string;
   contestMinute: number | null;
-  result: "rejected" | "accepted";
+  result: "rejected" | "accepted" | "compilation-error";
 }
 
 interface BaseProblemCell {

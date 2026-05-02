@@ -27,7 +27,7 @@ export interface SubmissionRevealEvent extends BaseUnfreezeEvent {
   kind: "submission";
   problemId: string;
   problemLabel: string;
-  verdict: "rejected" | "accepted";
+  verdict: "rejected" | "accepted" | "compilation-error";
   result: "pending" | "solved" | "failed";
   wrongAttempts: number;
   frozenSubmissionCount: number;
@@ -259,9 +259,9 @@ function buildRevealEventFromPendingCell(
   const result =
     nextCell.kind === "solved"
       ? "solved"
-      : nextCell.kind === "failed"
-        ? "failed"
-        : "pending";
+      : isPendingCell(nextCell)
+        ? "pending"
+        : "failed";
 
   return {
     id: `step-${eventNumber}-${team.id}-${cell.problemId}-${hiddenSubmission.id}`,
@@ -305,12 +305,18 @@ function createNextCell(
   }
 
   if (remainingHiddenSubmissions.length === 0) {
-    return {
-      kind: "failed",
-      problemId: cell.problemId,
-      problemLabel: cell.problemLabel,
-      wrongAttempts
-    };
+    return wrongAttempts > 0
+      ? {
+          kind: "failed",
+          problemId: cell.problemId,
+          problemLabel: cell.problemLabel,
+          wrongAttempts
+        }
+      : {
+          kind: "untouched",
+          problemId: cell.problemId,
+          problemLabel: cell.problemLabel
+        };
   }
 
   return {

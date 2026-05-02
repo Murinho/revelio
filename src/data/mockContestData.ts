@@ -388,8 +388,9 @@ function buildRecentSubmissions(teams: TeamStanding[]): RecentSubmission[] {
 function formatPendingSummary(
   cell: Extract<ProblemCellState, { kind: "queued" | "frozen-pending" }>
 ): string {
+  const previousPendingSubmissions = Math.max(0, cell.frozenSubmissionCount - 1);
   const mainLabel =
-    cell.frozenSubmissionCount > 1 ? `(${cell.frozenSubmissionCount})` : "?";
+    previousPendingSubmissions > 0 ? `(${previousPendingSubmissions})` : "?";
 
   return `${mainLabel} +${cell.wrongAttempts}`;
 }

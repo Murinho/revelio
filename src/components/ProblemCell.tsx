@@ -36,12 +36,8 @@ export function ProblemCell({
   }
 
   if (cell.kind === "queued" || cell.kind === "frozen-pending") {
-    const mainLabel =
-      cell.frozenSubmissionCount > 1 ? `(${cell.frozenSubmissionCount})` : "?";
-    const bottomLabel =
-      cell.pendingContestMinute !== undefined
-        ? String(cell.pendingContestMinute)
-        : `+${cell.wrongAttempts}`;
+    const mainLabel = formatPendingMainLabel(cell.frozenSubmissionCount);
+    const bottomLabel = `+${cell.wrongAttempts}`;
 
     return (
       <div
@@ -82,4 +78,12 @@ export function ProblemCell({
       </span>
     </div>
   );
+}
+
+function formatPendingMainLabel(frozenSubmissionCount: number): string {
+  const previousPendingSubmissions = Math.max(0, frozenSubmissionCount - 1);
+
+  return previousPendingSubmissions > 0
+    ? `(${previousPendingSubmissions})`
+    : "?";
 }

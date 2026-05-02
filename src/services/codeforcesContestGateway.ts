@@ -74,6 +74,12 @@ interface RelevantSubmissionAttempt {
 interface LivePendingSubmission {
   id: number;
   relativeTimeSeconds: number;
+  pendingSubmissionCount: number;
+}
+
+interface SubmissionRevealState {
+  pendingSubmissionIds?: ReadonlySet<number>;
+  revealedSubmissionIds?: ReadonlySet<number>;
 }
 
 const CODEFORCES_PAGE_SIZE = 5000;
@@ -497,7 +503,7 @@ function buildProblemCell(
         problemId: problem.id,
         problemLabel: problem.label,
         wrongAttempts: finalWrongAttempts,
-        frozenSubmissionCount: 1,
+        frozenSubmissionCount: livePendingSubmission.pendingSubmissionCount,
         pendingContestMinute: toContestMinute(
           livePendingSubmission.relativeTimeSeconds
         )
@@ -538,7 +544,11 @@ function buildProblemCell(
     (attempt, attemptIndex) => ({
       id: `${problem.id}-hidden-${attempt.id}-${attemptIndex}`,
       contestMinute: toContestMinute(attempt.relativeTimeSeconds),
-      result: attempt.isAccepted ? "accepted" : "rejected"
+      result: attempt.isAccepted
+        ? "accepted"
+        : attempt.isRejected
+          ? "rejected"
+          : "compilation-error"
     })
   );
 
@@ -623,8 +633,7 @@ function indexRelevantAttempts(
       !problemsByIndex.has(problemIndex) ||
       relativeTimeSeconds === undefined ||
       relativeTimeSeconds < 0 ||
-      verdictStatus === "pending" ||
-      verdictStatus === "compilation-error"
+      verdictStatus === "pending"
     ) {
       return;
     }
@@ -663,15 +672,13 @@ function indexRelevantAttempts(
 function indexLivePendingSubmissions(
   submissions: CodeforcesSubmission[],
   problemsByIndex: Set<string>,
-  revealState: {
-    pendingSubmissionIds?: ReadonlySet<number>;
-    revealedSubmissionIds?: ReadonlySet<number>;
-  }
+  revealState: SubmissionRevealState
 ): Map<string, LivePendingSubmission> {
   const livePendingSubmissionsByProblemKey = new Map<
     string,
     LivePendingSubmission
   >();
+  const pendingSubmissionCountsByProblemKey = new Map<string, number>();
 
   if (
     revealState.pendingSubmissionIds === undefined &&
@@ -702,13 +709,19 @@ function indexLivePendingSubmissions(
         return;
       }
 
-      livePendingSubmissionsByProblemKey.set(
-        `${partyKey}:${submission.problem.index}`,
-        {
-          id: submission.id,
-          relativeTimeSeconds
-        }
+      const problemKey = `${partyKey}:${submission.problem.index}`;
+      const pendingSubmissionCount =
+        (pendingSubmissionCountsByProblemKey.get(problemKey) ?? 0) + 1;
+
+      pendingSubmissionCountsByProblemKey.set(
+        problemKey,
+        pendingSubmissionCount
       );
+      livePendingSubmissionsByProblemKey.set(problemKey, {
+        id: submission.id,
+        relativeTimeSeconds,
+        pendingSubmissionCount
+      });
     });
 
   return livePendingSubmissionsByProblemKey;
@@ -717,15 +730,16 @@ function indexLivePendingSubmissions(
 function buildRecentSubmissions(
   submissions: CodeforcesSubmission[],
   teams: TeamStanding[],
-  revealState: {
-    pendingSubmissionIds?: ReadonlySet<number>;
-    revealedSubmissionIds?: ReadonlySet<number>;
-  }
+  revealState: SubmissionRevealState
 ): RecentSubmission[] {
   const teamsById = new Map(teams.map((team) => [team.id, team]));
   const wrongAttemptCountsBySubmissionId = buildWrongAttemptCountsBySubmissionId(
     submissions,
-    revealState.revealedSubmissionIds
+    revealState
+  );
+  const pendingVisualCountsBySubmissionId = buildPendingVisualCountsBySubmissionId(
+    submissions,
+    revealState
   );
 
   return [...submissions]
@@ -736,6 +750,8 @@ function buildRecentSubmissions(
       const team = teamsById.get(partyKey);
       const status = getRecentSubmissionStatus(submission, revealState);
       const wrongAttempts = wrongAttemptCountsBySubmissionId.get(submission.id) ?? 0;
+      const pendingVisualCount =
+        pendingVisualCountsBySubmissionId.get(submission.id) ?? 0;
 
       return {
         id: `cf-submission-${submission.id}`,
@@ -746,7 +762,8 @@ function buildRecentSubmissions(
         summary: formatRecentSubmissionSummary(
           status,
           toContestMinute(submission.relativeTimeSeconds ?? 0),
-          wrongAttempts
+          wrongAttempts,
+          pendingVisualCount
         ),
         kind: status === "pending" ? "queued" : "frozen-pending",
         status
@@ -756,19 +773,12 @@ function buildRecentSubmissions(
 
 function buildWrongAttemptCountsBySubmissionId(
   submissions: CodeforcesSubmission[],
-  revealedSubmissionIds?: ReadonlySet<number>
+  revealState: SubmissionRevealState
 ): Map<number, number> {
   const wrongAttemptCountsBySubmissionId = new Map<number, number>();
   const problemStates = new Map<string, { wrongAttempts: number; solved: boolean }>();
 
   [...submissions].sort(compareSubmissionsChronologically).forEach((submission) => {
-    if (
-      revealedSubmissionIds !== undefined &&
-      !revealedSubmissionIds.has(submission.id)
-    ) {
-      return;
-    }
-
     const partyKey = getPartyKey(submission.author);
 
     if (partyKey === null) {
@@ -778,7 +788,7 @@ function buildWrongAttemptCountsBySubmissionId(
     const problemKey = `${partyKey}:${submission.problem.index}`;
     const problemState =
       problemStates.get(problemKey) ?? { wrongAttempts: 0, solved: false };
-    const verdictStatus = getCodeforcesSubmissionVerdictStatus(submission.verdict);
+    const verdictStatus = getRecentSubmissionStatus(submission, revealState);
 
     if (problemState.solved) {
       wrongAttemptCountsBySubmissionId.set(submission.id, problemState.wrongAttempts);
@@ -804,12 +814,44 @@ function buildWrongAttemptCountsBySubmissionId(
   return wrongAttemptCountsBySubmissionId;
 }
 
+function buildPendingVisualCountsBySubmissionId(
+  submissions: CodeforcesSubmission[],
+  revealState: SubmissionRevealState
+): Map<number, number> {
+  const pendingVisualCountsBySubmissionId = new Map<number, number>();
+  const pendingSubmissionCountsByProblemKey = new Map<string, number>();
+
+  [...submissions].sort(compareSubmissionsChronologically).forEach((submission) => {
+    const partyKey = getPartyKey(submission.author);
+
+    if (partyKey === null) {
+      return;
+    }
+
+    if (getRecentSubmissionStatus(submission, revealState) !== "pending") {
+      return;
+    }
+
+    const problemKey = `${partyKey}:${submission.problem.index}`;
+    const previousPendingSubmissions =
+      pendingSubmissionCountsByProblemKey.get(problemKey) ?? 0;
+
+    pendingVisualCountsBySubmissionId.set(
+      submission.id,
+      previousPendingSubmissions
+    );
+    pendingSubmissionCountsByProblemKey.set(
+      problemKey,
+      previousPendingSubmissions + 1
+    );
+  });
+
+  return pendingVisualCountsBySubmissionId;
+}
+
 function getRecentSubmissionStatus(
   submission: CodeforcesSubmission,
-  revealState: {
-    pendingSubmissionIds?: ReadonlySet<number>;
-    revealedSubmissionIds?: ReadonlySet<number>;
-  }
+  revealState: SubmissionRevealState
 ): CodeforcesSubmissionVerdictStatus {
   if (
     revealState.pendingSubmissionIds?.has(submission.id) &&
@@ -831,7 +873,8 @@ function getRecentSubmissionStatus(
 function formatRecentSubmissionSummary(
   status: CodeforcesSubmissionVerdictStatus,
   contestMinute: number,
-  wrongAttempts: number
+  wrongAttempts: number,
+  pendingVisualCount: number
 ): string {
   switch (status) {
     case "accepted":
@@ -841,8 +884,12 @@ function formatRecentSubmissionSummary(
     case "compilation-error":
       return `X +${wrongAttempts}`;
     case "pending":
-      return `? ${contestMinute}`;
+      return `${formatPendingVisualCount(pendingVisualCount)} +${wrongAttempts}`;
   }
+}
+
+function formatPendingVisualCount(pendingVisualCount: number): string {
+  return pendingVisualCount > 0 ? `(${pendingVisualCount})` : "?";
 }
 
 function applyFirstToSolveFlags(teams: TeamStanding[]): TeamStanding[] {
