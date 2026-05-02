@@ -75,11 +75,14 @@ interface LivePendingSubmission {
   id: number;
   relativeTimeSeconds: number;
   pendingSubmissionCount: number;
+  frozenPendingSubmissionCount: number;
 }
 
 interface SubmissionRevealState {
   pendingSubmissionIds?: ReadonlySet<number>;
   revealedSubmissionIds?: ReadonlySet<number>;
+  freezeHiddenSubmissions: boolean;
+  freezeStartSeconds: number;
 }
 
 const CODEFORCES_PAGE_SIZE = 5000;
@@ -223,6 +226,8 @@ export function buildCodeforcesContestSnapshot(
     Math.max(0, Math.floor(configuration.freezeDurationMinutes * 60))
   );
   const freezeStartSeconds = Math.max(0, durationSeconds - freezeDurationSeconds);
+  const freezeHiddenSubmissions =
+    (options.freezeHiddenSubmissions ?? false) && freezeDurationSeconds > 0;
   const elapsedLimitSeconds = clamp(
     Math.floor(options.elapsedSeconds ?? durationSeconds),
     0,
@@ -254,7 +259,9 @@ export function buildCodeforcesContestSnapshot(
     problemsByIndex,
     {
       pendingSubmissionIds: options.pendingSubmissionIds,
-      revealedSubmissionIds: options.revealedSubmissionIds
+      revealedSubmissionIds: options.revealedSubmissionIds,
+      freezeHiddenSubmissions,
+      freezeStartSeconds
     }
   );
   const teams = rankTeams(
@@ -266,7 +273,7 @@ export function buildCodeforcesContestSnapshot(
           attemptsByProblemKey,
           livePendingSubmissionsByProblemKey,
           freezeStartSeconds,
-          options.freezeHiddenSubmissions ?? false
+          freezeHiddenSubmissions
         )
       )
     )
@@ -276,14 +283,16 @@ export function buildCodeforcesContestSnapshot(
     contestName: "Revelio",
     regionName:
       configuration.contestName.trim() || `Codeforces Contest ${contestId}`,
-    phase: options.freezeHiddenSubmissions ? "frozen" : "revealing",
+    phase: freezeHiddenSubmissions ? "frozen" : "revealing",
     durationLabel: formatDurationClock(Math.floor(durationSeconds / 60)),
     freezeLabel: formatFreezeWindowLabel(Math.floor(freezeDurationSeconds / 60)),
     problems,
     teams,
     recentSubmissions: buildRecentSubmissions(relevantConsideredSubmissions, teams, {
       pendingSubmissionIds: options.pendingSubmissionIds,
-      revealedSubmissionIds: options.revealedSubmissionIds
+      revealedSubmissionIds: options.revealedSubmissionIds,
+      freezeHiddenSubmissions,
+      freezeStartSeconds
     }),
     updatedAtLabel: formatStatusUpdateLabel(
       options.updatedAt ?? new Date(),
@@ -527,11 +536,11 @@ function buildProblemCell(
   }
 
   const hiddenAttempts = attempts.filter(
-    (attempt) => attempt.relativeTimeSeconds > freezeStartSeconds
+    (attempt) => attempt.relativeTimeSeconds >= freezeStartSeconds
   );
   const preFreezeWrongAttempts = attempts.filter(
     (attempt) =>
-      attempt.isRejected && attempt.relativeTimeSeconds <= freezeStartSeconds
+      attempt.isRejected && attempt.relativeTimeSeconds < freezeStartSeconds
   ).length;
   const hiddenWrongAttempts = hiddenAttempts.filter(
     (attempt) => attempt.isRejected
@@ -539,7 +548,7 @@ function buildProblemCell(
   const solvedBeforeFreeze =
     finalSolved &&
     firstAcceptedAttempt !== undefined &&
-    firstAcceptedAttempt.relativeTimeSeconds <= freezeStartSeconds;
+    firstAcceptedAttempt.relativeTimeSeconds < freezeStartSeconds;
   const hiddenSubmissions: HiddenSubmission[] = hiddenAttempts.map(
     (attempt, attemptIndex) => ({
       id: `${problem.id}-hidden-${attempt.id}-${attemptIndex}`,
@@ -569,7 +578,12 @@ function buildProblemCell(
     };
   }
 
-  if (hiddenSubmissions.length > 0) {
+  const frozenPendingSubmissionCount =
+    livePendingSubmission?.frozenPendingSubmissionCount ?? 0;
+  const frozenSubmissionCount =
+    hiddenSubmissions.length + frozenPendingSubmissionCount;
+
+  if (frozenSubmissionCount > 0) {
     const revealOutcome: PendingRevealOutcome = {
       result: finalSolved ? "solved" : "failed",
       hiddenWrongAttempts,
@@ -595,8 +609,21 @@ function buildProblemCell(
       problemId: problem.id,
       problemLabel: problem.label,
       wrongAttempts: preFreezeWrongAttempts,
-      frozenSubmissionCount: hiddenSubmissions.length,
+      frozenSubmissionCount,
       revealOutcome
+    };
+  }
+
+  if (livePendingSubmission) {
+    return {
+      kind: "queued",
+      problemId: problem.id,
+      problemLabel: problem.label,
+      wrongAttempts: preFreezeWrongAttempts,
+      frozenSubmissionCount: livePendingSubmission.pendingSubmissionCount,
+      pendingContestMinute: toContestMinute(
+        livePendingSubmission.relativeTimeSeconds
+      )
     };
   }
 
@@ -679,13 +706,7 @@ function indexLivePendingSubmissions(
     LivePendingSubmission
   >();
   const pendingSubmissionCountsByProblemKey = new Map<string, number>();
-
-  if (
-    revealState.pendingSubmissionIds === undefined &&
-    revealState.revealedSubmissionIds === undefined
-  ) {
-    return livePendingSubmissionsByProblemKey;
-  }
+  const frozenPendingSubmissionCountsByProblemKey = new Map<string, number>();
 
   submissions
     .filter((submission) => {
@@ -697,7 +718,7 @@ function indexLivePendingSubmissions(
         relativeTimeSeconds !== undefined &&
         relativeTimeSeconds >= 0 &&
         problemsByIndex.has(submission.problem.index) &&
-        getRecentSubmissionStatus(submission, revealState) === "pending"
+        getTrackedSubmissionStatus(submission, revealState) === "pending"
       );
     })
     .sort(compareSubmissionsChronologically)
@@ -712,15 +733,24 @@ function indexLivePendingSubmissions(
       const problemKey = `${partyKey}:${submission.problem.index}`;
       const pendingSubmissionCount =
         (pendingSubmissionCountsByProblemKey.get(problemKey) ?? 0) + 1;
+      const frozenPendingSubmissionCount =
+        relativeTimeSeconds >= revealState.freezeStartSeconds
+          ? (frozenPendingSubmissionCountsByProblemKey.get(problemKey) ?? 0) + 1
+          : (frozenPendingSubmissionCountsByProblemKey.get(problemKey) ?? 0);
 
       pendingSubmissionCountsByProblemKey.set(
         problemKey,
         pendingSubmissionCount
       );
+      frozenPendingSubmissionCountsByProblemKey.set(
+        problemKey,
+        frozenPendingSubmissionCount
+      );
       livePendingSubmissionsByProblemKey.set(problemKey, {
         id: submission.id,
         relativeTimeSeconds,
-        pendingSubmissionCount
+        pendingSubmissionCount,
+        frozenPendingSubmissionCount
       });
     });
 
@@ -820,6 +850,7 @@ function buildPendingVisualCountsBySubmissionId(
 ): Map<number, number> {
   const pendingVisualCountsBySubmissionId = new Map<number, number>();
   const pendingSubmissionCountsByProblemKey = new Map<string, number>();
+  const frozenSubmissionCountsByProblemKey = new Map<string, number>();
 
   [...submissions].sort(compareSubmissionsChronologically).forEach((submission) => {
     const partyKey = getPartyKey(submission.author);
@@ -833,6 +864,22 @@ function buildPendingVisualCountsBySubmissionId(
     }
 
     const problemKey = `${partyKey}:${submission.problem.index}`;
+
+    if (isSubmissionHiddenByFreeze(submission, revealState)) {
+      const previousFrozenSubmissions =
+        frozenSubmissionCountsByProblemKey.get(problemKey) ?? 0;
+
+      pendingVisualCountsBySubmissionId.set(
+        submission.id,
+        previousFrozenSubmissions
+      );
+      frozenSubmissionCountsByProblemKey.set(
+        problemKey,
+        previousFrozenSubmissions + 1
+      );
+      return;
+    }
+
     const previousPendingSubmissions =
       pendingSubmissionCountsByProblemKey.get(problemKey) ?? 0;
 
@@ -853,6 +900,17 @@ function getRecentSubmissionStatus(
   submission: CodeforcesSubmission,
   revealState: SubmissionRevealState
 ): CodeforcesSubmissionVerdictStatus {
+  if (isSubmissionHiddenByFreeze(submission, revealState)) {
+    return "pending";
+  }
+
+  return getTrackedSubmissionStatus(submission, revealState);
+}
+
+function getTrackedSubmissionStatus(
+  submission: CodeforcesSubmission,
+  revealState: SubmissionRevealState
+): CodeforcesSubmissionVerdictStatus {
   if (
     revealState.pendingSubmissionIds?.has(submission.id) &&
     !revealState.revealedSubmissionIds?.has(submission.id)
@@ -868,6 +926,16 @@ function getRecentSubmissionStatus(
   }
 
   return getCodeforcesSubmissionVerdictStatus(submission.verdict);
+}
+
+function isSubmissionHiddenByFreeze(
+  submission: CodeforcesSubmission,
+  revealState: SubmissionRevealState
+): boolean {
+  return (
+    revealState.freezeHiddenSubmissions &&
+    (submission.relativeTimeSeconds ?? -1) >= revealState.freezeStartSeconds
+  );
 }
 
 function formatRecentSubmissionSummary(

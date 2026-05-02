@@ -130,19 +130,29 @@ function subscribeToLiveCodeforcesSnapshot({
   let polling = false;
   let hasLoadedSnapshot = false;
   let pollIntervalId: number | null = null;
+  let clockIntervalId: number | null = null;
   let latestSubmissions: CodeforcesSubmission[] = [];
   let lastPolledElapsedSeconds = elapsedSecondsRef.current;
+  let lastSnapshotFreezeHiddenSubmissions = shouldHideFrozenSubmissions(
+    configuration,
+    lastPolledElapsedSeconds
+  );
   const tracker = createLiveSubmissionTracker();
 
-  const rebuildSnapshot = () => {
+  const rebuildSnapshot = (snapshotElapsedSeconds = lastPolledElapsedSeconds) => {
     if (!active) {
       return;
     }
 
+    const freezeHiddenSubmissions = shouldHideFrozenSubmissions(
+      configuration,
+      snapshotElapsedSeconds
+    );
+
     setSnapshot(
       buildCodeforcesContestSnapshot(configuration, contestId, latestSubmissions, {
-        elapsedSeconds: lastPolledElapsedSeconds,
-        freezeHiddenSubmissions: false,
+        elapsedSeconds: snapshotElapsedSeconds,
+        freezeHiddenSubmissions,
         pendingSubmissionIds: tracker.pendingSubmissionIds,
         revealedSubmissionIds: tracker.revealedSubmissionIds,
         updatedAt: new Date()
@@ -151,6 +161,22 @@ function subscribeToLiveCodeforcesSnapshot({
     setError(null);
     setLoading(false);
     hasLoadedSnapshot = true;
+    lastSnapshotFreezeHiddenSubmissions = freezeHiddenSubmissions;
+  };
+
+  const refreshSnapshotMode = () => {
+    if (!hasLoadedSnapshot) {
+      return;
+    }
+
+    const nextFreezeHiddenSubmissions = shouldHideFrozenSubmissions(
+      configuration,
+      elapsedSecondsRef.current
+    );
+
+    if (nextFreezeHiddenSubmissions !== lastSnapshotFreezeHiddenSubmissions) {
+      rebuildSnapshot(elapsedSecondsRef.current);
+    }
   };
 
   const pollCodeforcesStatus = async () => {
@@ -202,12 +228,17 @@ function subscribeToLiveCodeforcesSnapshot({
     pollCodeforcesStatus,
     LIVE_SCOREBOARD_POLL_INTERVAL_MS
   );
+  clockIntervalId = window.setInterval(refreshSnapshotMode, 1000);
 
   return () => {
     active = false;
 
     if (pollIntervalId !== null) {
       window.clearInterval(pollIntervalId);
+    }
+
+    if (clockIntervalId !== null) {
+      window.clearInterval(clockIntervalId);
     }
   };
 }
@@ -267,4 +298,24 @@ function formatSnapshotError(loadError: unknown): string {
   return loadError instanceof Error
     ? loadError.message
     : "Unknown error while loading the contest.";
+}
+
+function shouldHideFrozenSubmissions(
+  configuration: ContestConfiguration,
+  elapsedSeconds: number
+): boolean {
+  const durationSeconds = Math.max(
+    1,
+    Math.floor(configuration.durationMinutes * 60)
+  );
+  const freezeDurationSeconds = Math.min(
+    durationSeconds,
+    Math.max(0, Math.floor(configuration.freezeDurationMinutes * 60))
+  );
+
+  if (freezeDurationSeconds <= 0) {
+    return false;
+  }
+
+  return elapsedSeconds >= durationSeconds - freezeDurationSeconds;
 }
