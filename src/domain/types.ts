@@ -80,6 +80,7 @@ export interface QueuedProblemCell extends BaseProblemCell {
   kind: "queued";
   wrongAttempts: number;
   frozenSubmissionCount: number;
+  pendingContestMinute?: number;
   revealOutcome?: PendingRevealOutcome;
 }
 
@@ -87,6 +88,7 @@ export interface FrozenPendingProblemCell extends BaseProblemCell {
   kind: "frozen-pending";
   wrongAttempts: number;
   frozenSubmissionCount: number;
+  pendingContestMinute?: number;
   revealOutcome?: PendingRevealOutcome;
 }
 

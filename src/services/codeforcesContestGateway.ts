@@ -71,6 +71,11 @@ interface RelevantSubmissionAttempt {
   isRejected: boolean;
 }
 
+interface LivePendingSubmission {
+  id: number;
+  relativeTimeSeconds: number;
+}
+
 const CODEFORCES_PAGE_SIZE = 5000;
 const FALLBACK_BALLOON_COLORS = [
   "#f5f7fb",
@@ -226,15 +231,25 @@ export function buildCodeforcesContestSnapshot(
       problemsByIndex
     )
   );
+  const relevantConsideredSubmissions =
+    selectSubmissionsUntilFirstAccepted(consideredSubmissions);
   const scoringSubmissions =
     options.revealedSubmissionIds === undefined
-      ? consideredSubmissions
-      : consideredSubmissions.filter((submission) =>
+      ? relevantConsideredSubmissions
+      : relevantConsideredSubmissions.filter((submission) =>
           options.revealedSubmissionIds?.has(submission.id)
         );
   const attemptsByProblemKey = indexRelevantAttempts(
     scoringSubmissions,
     problemsByIndex
+  );
+  const livePendingSubmissionsByProblemKey = indexLivePendingSubmissions(
+    relevantConsideredSubmissions,
+    problemsByIndex,
+    {
+      pendingSubmissionIds: options.pendingSubmissionIds,
+      revealedSubmissionIds: options.revealedSubmissionIds
+    }
   );
   const teams = rankTeams(
     applyFirstToSolveFlags(
@@ -243,6 +258,7 @@ export function buildCodeforcesContestSnapshot(
           party,
           problems,
           attemptsByProblemKey,
+          livePendingSubmissionsByProblemKey,
           freezeStartSeconds,
           options.freezeHiddenSubmissions ?? false
         )
@@ -259,7 +275,7 @@ export function buildCodeforcesContestSnapshot(
     freezeLabel: formatFreezeWindowLabel(Math.floor(freezeDurationSeconds / 60)),
     problems,
     teams,
-    recentSubmissions: buildRecentSubmissions(consideredSubmissions, teams, {
+    recentSubmissions: buildRecentSubmissions(relevantConsideredSubmissions, teams, {
       pendingSubmissionIds: options.pendingSubmissionIds,
       revealedSubmissionIds: options.revealedSubmissionIds
     }),
@@ -355,6 +371,35 @@ function isConsideredCodeforcesSubmission(
   );
 }
 
+function selectSubmissionsUntilFirstAccepted(
+  submissions: CodeforcesSubmission[]
+): CodeforcesSubmission[] {
+  const solvedProblemKeys = new Set<string>();
+  const relevantSubmissions: CodeforcesSubmission[] = [];
+
+  [...submissions].sort(compareSubmissionsChronologically).forEach((submission) => {
+    const partyKey = getPartyKey(submission.author);
+
+    if (partyKey === null) {
+      return;
+    }
+
+    const problemKey = `${partyKey}:${submission.problem.index}`;
+
+    if (solvedProblemKeys.has(problemKey)) {
+      return;
+    }
+
+    relevantSubmissions.push(submission);
+
+    if (getCodeforcesSubmissionVerdictStatus(submission.verdict) === "accepted") {
+      solvedProblemKeys.add(problemKey);
+    }
+  });
+
+  return relevantSubmissions;
+}
+
 function collectParticipantParties(
   submissions: CodeforcesSubmission[]
 ): CodeforcesParty[] {
@@ -379,6 +424,7 @@ function buildTeamStanding(
   party: CodeforcesParty,
   problems: ProblemMeta[],
   attemptsByProblemKey: Map<string, RelevantSubmissionAttempt[]>,
+  livePendingSubmissionsByProblemKey: Map<string, LivePendingSubmission>,
   freezeStartSeconds: number,
   freezeHiddenSubmissions: boolean
 ): TeamStanding {
@@ -388,11 +434,15 @@ function buildTeamStanding(
     .filter((handle) => handle.length > 0);
   const name = party.teamName?.trim() || members.join(" / ") || "Unnamed team";
   const problemCells = problems.map((problem) => {
-    const attempts = attemptsByProblemKey.get(`${partyKey}:${problem.id}`) ?? [];
+    const problemKey = `${partyKey}:${problem.id}`;
+    const attempts = attemptsByProblemKey.get(problemKey) ?? [];
+    const livePendingSubmission =
+      livePendingSubmissionsByProblemKey.get(problemKey) ?? null;
 
     return buildProblemCell(
       problem,
       attempts,
+      livePendingSubmission,
       freezeStartSeconds,
       freezeHiddenSubmissions
     );
@@ -415,6 +465,7 @@ function buildTeamStanding(
 function buildProblemCell(
   problem: ProblemMeta,
   attempts: RelevantSubmissionAttempt[],
+  livePendingSubmission: LivePendingSubmission | null,
   freezeStartSeconds: number,
   freezeHiddenSubmissions: boolean
 ): ProblemCellState {
@@ -437,6 +488,19 @@ function buildProblemCell(
           finalWrongAttempts
         ),
         firstToSolve: false
+      };
+    }
+
+    if (livePendingSubmission) {
+      return {
+        kind: "queued",
+        problemId: problem.id,
+        problemLabel: problem.label,
+        wrongAttempts: finalWrongAttempts,
+        frozenSubmissionCount: 1,
+        pendingContestMinute: toContestMinute(
+          livePendingSubmission.relativeTimeSeconds
+        )
       };
     }
 
@@ -594,6 +658,60 @@ function indexRelevantAttempts(
   });
 
   return attemptsByProblemKey;
+}
+
+function indexLivePendingSubmissions(
+  submissions: CodeforcesSubmission[],
+  problemsByIndex: Set<string>,
+  revealState: {
+    pendingSubmissionIds?: ReadonlySet<number>;
+    revealedSubmissionIds?: ReadonlySet<number>;
+  }
+): Map<string, LivePendingSubmission> {
+  const livePendingSubmissionsByProblemKey = new Map<
+    string,
+    LivePendingSubmission
+  >();
+
+  if (
+    revealState.pendingSubmissionIds === undefined &&
+    revealState.revealedSubmissionIds === undefined
+  ) {
+    return livePendingSubmissionsByProblemKey;
+  }
+
+  submissions
+    .filter((submission) => {
+      const partyKey = getPartyKey(submission.author);
+      const relativeTimeSeconds = submission.relativeTimeSeconds;
+
+      return (
+        partyKey !== null &&
+        relativeTimeSeconds !== undefined &&
+        relativeTimeSeconds >= 0 &&
+        problemsByIndex.has(submission.problem.index) &&
+        getRecentSubmissionStatus(submission, revealState) === "pending"
+      );
+    })
+    .sort(compareSubmissionsChronologically)
+    .forEach((submission) => {
+      const partyKey = getPartyKey(submission.author);
+      const relativeTimeSeconds = submission.relativeTimeSeconds;
+
+      if (partyKey === null || relativeTimeSeconds === undefined) {
+        return;
+      }
+
+      livePendingSubmissionsByProblemKey.set(
+        `${partyKey}:${submission.problem.index}`,
+        {
+          id: submission.id,
+          relativeTimeSeconds
+        }
+      );
+    });
+
+  return livePendingSubmissionsByProblemKey;
 }
 
 function buildRecentSubmissions(

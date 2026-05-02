@@ -38,6 +38,10 @@ export function ProblemCell({
   if (cell.kind === "queued" || cell.kind === "frozen-pending") {
     const mainLabel =
       cell.frozenSubmissionCount > 1 ? `(${cell.frozenSubmissionCount})` : "?";
+    const bottomLabel =
+      cell.pendingContestMinute !== undefined
+        ? String(cell.pendingContestMinute)
+        : `+${cell.wrongAttempts}`;
 
     return (
       <div
@@ -45,7 +49,7 @@ export function ProblemCell({
         title={`Problem ${cell.problemLabel}: ${cell.kind}`}
       >
         <span className="problem-cell__main">{mainLabel}</span>
-        <span className="problem-cell__bottom">+{cell.wrongAttempts}</span>
+        <span className="problem-cell__bottom">{bottomLabel}</span>
       </div>
     );
   }
