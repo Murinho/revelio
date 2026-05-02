@@ -41,11 +41,13 @@ export interface TeamStanding {
 
 export interface RecentSubmission {
   id: string;
+  teamId?: string;
   contestMinute: number;
   teamName: string;
   problemLabel: string;
   summary: string;
   kind: "queued" | "frozen-pending";
+  status?: "pending" | "accepted" | "rejected" | "compilation-error";
 }
 
 export interface PendingRevealOutcome {
@@ -99,6 +101,8 @@ export interface SolvedProblemCell extends BaseProblemCell {
   kind: "solved";
   wrongAttempts: number;
   solveTime: number;
+  solveTimeSeconds?: number;
+  solveSubmissionId?: number;
   penalty: number;
   firstToSolve: boolean;
 }

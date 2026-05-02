@@ -49,8 +49,11 @@ export function App() {
       : route.screen === "unfreeze"
         ? targetContest?.configuration ?? null
         : null;
-  const { snapshot, loading, error } = useContestSnapshot(activeConfiguration);
   const contestClock = useContestClock(activeConfiguration);
+  const { snapshot, loading, error } = useContestSnapshot(activeConfiguration, {
+    elapsedSeconds: contestClock.elapsedSeconds,
+    live: route.screen === "scoreboard"
+  });
   const firstToSolveTwinkleMinute = getFirstToSolveTwinkleMinute(
     contestClock.elapsedSeconds,
     contestClock.phase

@@ -8,7 +8,17 @@ import { createHttpContestGateway } from "./httpContestGateway";
 import { createMockContestGateway } from "./mockContestGateway";
 
 export interface ContestGateway {
-  getContestSnapshot(configuration: ContestConfiguration): Promise<ContestSnapshot>;
+  getContestSnapshot(
+    configuration: ContestConfiguration,
+    request?: ContestSnapshotRequest
+  ): Promise<ContestSnapshot>;
+}
+
+export interface ContestSnapshotRequest {
+  elapsedSeconds?: number;
+  revealedSubmissionIds?: ReadonlySet<number>;
+  pendingSubmissionIds?: ReadonlySet<number>;
+  freezeHiddenSubmissions?: boolean;
 }
 
 export function createContestGateway(

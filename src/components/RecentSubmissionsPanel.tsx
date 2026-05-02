@@ -15,11 +15,26 @@ function getPendingCellParts(summary: string) {
   };
 }
 
+function getSubmissionCellClass(submission: RecentSubmission) {
+  switch (submission.status) {
+    case "accepted":
+      return "problem-cell--solved";
+    case "rejected":
+      return "problem-cell--failed";
+    case "compilation-error":
+      return "problem-cell--untouched";
+    case "pending":
+    default:
+      return "problem-cell--pending";
+  }
+}
+
 export function RecentSubmissionsPanel({
   submissions,
   teams
 }: RecentSubmissionsPanelProps) {
   const teamByName = new Map(teams.map((team) => [team.name, team]));
+  const teamById = new Map(teams.map((team) => [team.id, team]));
 
   function getRankCellClass(rank: number | undefined) {
     if (rank === 1) {
@@ -41,9 +56,12 @@ export function RecentSubmissionsPanel({
     <Panel title="Last Submissions">
       <ul className="submission-list">
         {submissions.map((submission) => {
-          const team = teamByName.get(submission.teamName);
+          const team =
+            (submission.teamId ? teamById.get(submission.teamId) : undefined) ??
+            teamByName.get(submission.teamName);
           const pendingCell = getPendingCellParts(submission.summary);
           const rankCellClass = getRankCellClass(team?.rank);
+          const submissionCellClass = getSubmissionCellClass(submission);
 
           return (
             <li className="submission-list__row" key={submission.id}>
@@ -70,7 +88,7 @@ export function RecentSubmissionsPanel({
                 {submission.problemLabel}
               </span>
               <div className="submission-list__cell submission-list__attempts">
-                <div className="problem-cell problem-cell--pending">
+                <div className={`problem-cell ${submissionCellClass}`}>
                   <span className="problem-cell__main">{pendingCell.main}</span>
                   <span className="problem-cell__bottom">{pendingCell.bottom}</span>
                 </div>

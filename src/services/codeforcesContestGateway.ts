@@ -1,6 +1,6 @@
 import {
-  ContestConfiguration,
   ContestCodeforcesCredentials,
+  ContestConfiguration,
   formatDurationClock,
   formatFreezeWindowLabel
 } from "../domain/contestConfiguration";
@@ -11,16 +11,11 @@ import {
   ProblemCellState,
   ProblemMeta,
   RecentSubmission,
+  SolvedProblemCell,
   TeamStanding
 } from "../domain/types";
 import { requestCodeforcesApi } from "./codeforcesApi";
-import type { ContestGateway } from "./contestGateway";
-
-interface CodeforcesContest {
-  id: number;
-  name: string;
-  durationSeconds?: number;
-}
+import type { ContestGateway, ContestSnapshotRequest } from "./contestGateway";
 
 interface CodeforcesMember {
   handle: string;
@@ -40,48 +35,32 @@ interface CodeforcesParty {
   members: CodeforcesMember[];
   teamId?: number;
   teamName?: string;
-  ghost: boolean;
+  ghost?: boolean;
 }
 
 interface CodeforcesProblem {
   contestId?: number;
   index: string;
-  name: string;
+  name?: string;
 }
 
-interface CodeforcesProblemResult {
-  points: number;
-  rejectedAttemptCount: number;
-  bestSubmissionTimeSeconds?: number;
-}
-
-interface CodeforcesRanklistRow {
-  party: CodeforcesParty;
-  rank: number;
-  points: number;
-  penalty: number;
-  problemResults: CodeforcesProblemResult[];
-}
-
-interface CodeforcesStandingsResult {
-  contest: CodeforcesContest;
-  problems: CodeforcesProblem[];
-  rows: CodeforcesRanklistRow[];
-}
-
-interface CodeforcesSubmission {
+export interface CodeforcesSubmission {
   id: number;
   relativeTimeSeconds?: number;
+  creationTimeSeconds?: number;
   problem: CodeforcesProblem;
   author: CodeforcesParty;
   verdict?: string;
 }
 
-interface CodeforcesContestData {
-  contest: CodeforcesContest;
-  problems: CodeforcesProblem[];
-  rows: CodeforcesRanklistRow[];
-  submissions: CodeforcesSubmission[];
+export type CodeforcesSubmissionVerdictStatus =
+  | "pending"
+  | "accepted"
+  | "rejected"
+  | "compilation-error";
+
+interface BuildCodeforcesContestSnapshotOptions extends ContestSnapshotRequest {
+  updatedAt?: Date;
 }
 
 interface RelevantSubmissionAttempt {
@@ -107,34 +86,35 @@ const FALLBACK_BALLOON_COLORS = [
   "#5aff4b",
   "#ffd35c"
 ];
-const NON_PENALIZED_VERDICTS = new Set([
-  "COMPILATION_ERROR",
-  "SKIPPED",
-  "SUBMITTED",
-  "TESTING"
-]);
+const LIVE_RECENT_SUBMISSION_LIMIT = 20;
+const PENDING_VERDICTS = new Set(["", "SKIPPED", "SUBMITTED", "TESTING"]);
 const INCLUDED_PARTICIPANT_TYPES: CodeforcesParticipantType[] = [
   "CONTESTANT",
   "VIRTUAL"
 ];
 const INCLUDED_PARTICIPANT_TYPE_SET = new Set(INCLUDED_PARTICIPANT_TYPES);
 
-const contestDataCache = new Map<string, Promise<CodeforcesContestData>>();
-
 export function createCodeforcesContestGateway(): ContestGateway {
   return {
-    async getContestSnapshot(configuration: ContestConfiguration): Promise<ContestSnapshot> {
+    async getContestSnapshot(
+      configuration: ContestConfiguration,
+      request: ContestSnapshotRequest = {}
+    ): Promise<ContestSnapshot> {
       const contestId = extractCodeforcesContestId(configuration.contestUrl);
 
       if (contestId === null) {
         throw new Error("Enter a valid Codeforces contest or gym URL.");
       }
 
-      const contestData = await loadCodeforcesContestData(
+      const submissions = await loadCodeforcesContestSubmissions(
         contestId,
         configuration.codeforces
       );
-      return buildContestSnapshot(configuration, contestData);
+
+      return buildCodeforcesContestSnapshot(configuration, contestId, submissions, {
+        ...request,
+        freezeHiddenSubmissions: request.freezeHiddenSubmissions ?? true
+      });
     }
   };
 }
@@ -188,110 +168,7 @@ export function extractCodeforcesContestId(contestUrl: string): number | null {
   return null;
 }
 
-async function loadCodeforcesContestData(
-  contestId: number,
-  credentials: ContestCodeforcesCredentials
-): Promise<CodeforcesContestData> {
-  const cacheKey = buildContestDataCacheKey(contestId, credentials);
-  const cachedContest = contestDataCache.get(cacheKey);
-
-  if (cachedContest) {
-    return cachedContest;
-  }
-
-  const contestPromise = fetchCodeforcesContestData(contestId, credentials).catch(
-    (error) => {
-      contestDataCache.delete(cacheKey);
-      throw error;
-    }
-  );
-
-  contestDataCache.set(cacheKey, contestPromise);
-  return contestPromise;
-}
-
-async function fetchCodeforcesContestData(
-  contestId: number,
-  credentials: ContestCodeforcesCredentials
-): Promise<CodeforcesContestData> {
-  const standingsResult = await loadStandingsResult(contestId, credentials);
-  const selectedRows = selectRelevantRows(standingsResult.rows);
-
-  if (selectedRows.rows.length === 0) {
-    throw new Error(
-      "Codeforces returned no contestants or virtual participants for this contest."
-    );
-  }
-
-  const participantKeys = new Set(
-    selectedRows.rows
-      .map((row) => getPartyKey(row.party))
-      .filter((key): key is string => key !== null)
-  );
-
-  const submissions = (await loadContestSubmissions(contestId, credentials)).filter(
-    (submission) => {
-      const participantKey = getPartyKey(submission.author);
-
-      return (
-        isIncludedParticipantType(submission.author.participantType) &&
-        participantKey !== null &&
-        participantKeys.has(participantKey)
-      );
-    }
-  );
-
-  return {
-    contest: standingsResult.contest,
-    problems: standingsResult.problems,
-    rows: selectedRows.rows,
-    submissions
-  };
-}
-
-async function loadStandingsResult(
-  contestId: number,
-  credentials: ContestCodeforcesCredentials
-): Promise<CodeforcesStandingsResult> {
-  let from = 1;
-  let contest: CodeforcesContest | null = null;
-  let problems: CodeforcesProblem[] = [];
-  const rows: CodeforcesRanklistRow[] = [];
-
-  while (true) {
-    const result = await requestCodeforcesApi<CodeforcesStandingsResult>(
-      "contest.standings",
-      {
-        contestId,
-        from,
-        count: CODEFORCES_PAGE_SIZE,
-        showUnofficial: true,
-        participantTypes: INCLUDED_PARTICIPANT_TYPES.join(","),
-        lang: "en"
-      },
-      credentials
-    );
-
-    contest = contest ?? result.contest;
-    if (problems.length === 0) {
-      problems = result.problems;
-    }
-
-    rows.push(...result.rows);
-
-    if (result.rows.length < CODEFORCES_PAGE_SIZE) {
-      return {
-        contest: contest ?? result.contest,
-        problems,
-        rows
-      };
-    }
-
-    from += CODEFORCES_PAGE_SIZE;
-  }
-}
-
-async function loadContestSubmissions(
+export async function loadCodeforcesContestSubmissions(
   contestId: number,
   credentials: ContestCodeforcesCredentials
 ): Promise<CodeforcesSubmission[]> {
@@ -320,94 +197,210 @@ async function loadContestSubmissions(
   }
 }
 
-function buildContestDataCacheKey(
-  contestId: number,
-  credentials: ContestCodeforcesCredentials
-): string {
-  const apiKey = credentials.apiKey.trim();
-
-  return apiKey ? `${contestId}:authenticated:${apiKey}` : `${contestId}:anonymous`;
-}
-
-function buildContestSnapshot(
+export function buildCodeforcesContestSnapshot(
   configuration: ContestConfiguration,
-  contestData: CodeforcesContestData
+  contestId: number,
+  submissions: CodeforcesSubmission[],
+  options: BuildCodeforcesContestSnapshotOptions = {}
 ): ContestSnapshot {
-  const durationSeconds =
-    contestData.contest.durationSeconds ?? configuration.durationMinutes * 60;
+  const durationSeconds = Math.max(
+    1,
+    Math.floor(configuration.durationMinutes * 60)
+  );
   const freezeDurationSeconds = Math.min(
     durationSeconds,
-    Math.max(0, configuration.freezeDurationMinutes * 60)
+    Math.max(0, Math.floor(configuration.freezeDurationMinutes * 60))
   );
   const freezeStartSeconds = Math.max(0, durationSeconds - freezeDurationSeconds);
-  const problems = buildProblems(configuration, contestData.problems);
+  const elapsedLimitSeconds = clamp(
+    Math.floor(options.elapsedSeconds ?? durationSeconds),
+    0,
+    durationSeconds
+  );
+  const problems = buildProblems(configuration, submissions);
   const problemsByIndex = new Set(problems.map((problem) => problem.id));
-  const submissionAttemptsByProblemKey = indexRelevantAttempts(
-    contestData.submissions,
-    durationSeconds,
+  const consideredSubmissions = submissions.filter((submission) =>
+    isConsideredCodeforcesSubmission(
+      submission,
+      elapsedLimitSeconds,
+      problemsByIndex
+    )
+  );
+  const scoringSubmissions =
+    options.revealedSubmissionIds === undefined
+      ? consideredSubmissions
+      : consideredSubmissions.filter((submission) =>
+          options.revealedSubmissionIds?.has(submission.id)
+        );
+  const attemptsByProblemKey = indexRelevantAttempts(
+    scoringSubmissions,
     problemsByIndex
   );
   const teams = rankTeams(
     applyFirstToSolveFlags(
-      contestData.rows.map((row) =>
-        buildTeamStanding(row, problems, submissionAttemptsByProblemKey, freezeStartSeconds)
+      collectParticipantParties(consideredSubmissions).map((party) =>
+        buildTeamStanding(
+          party,
+          problems,
+          attemptsByProblemKey,
+          freezeStartSeconds,
+          options.freezeHiddenSubmissions ?? false
+        )
       )
     )
   );
 
   return {
     contestName: "Revelio",
-    regionName: contestData.contest.name,
-    phase: "frozen",
+    regionName:
+      configuration.contestName.trim() || `Codeforces Contest ${contestId}`,
+    phase: options.freezeHiddenSubmissions ? "frozen" : "revealing",
     durationLabel: formatDurationClock(Math.floor(durationSeconds / 60)),
     freezeLabel: formatFreezeWindowLabel(Math.floor(freezeDurationSeconds / 60)),
     problems,
     teams,
-    recentSubmissions: buildRecentSubmissions(teams),
-    updatedAtLabel:
-      "Loaded from Codeforces contest.standings and contest.status for contestants and virtual participants"
+    recentSubmissions: buildRecentSubmissions(consideredSubmissions, teams, {
+      pendingSubmissionIds: options.pendingSubmissionIds,
+      revealedSubmissionIds: options.revealedSubmissionIds
+    }),
+    updatedAtLabel: formatStatusUpdateLabel(
+      options.updatedAt ?? new Date(),
+      elapsedLimitSeconds
+    )
   };
+}
+
+export function isCodeforcesSubmissionEligible(
+  submission: CodeforcesSubmission,
+  elapsedSeconds: number
+): boolean {
+  const relativeTimeSeconds = submission.relativeTimeSeconds;
+
+  return (
+    isIncludedParticipantType(submission.author.participantType) &&
+    relativeTimeSeconds !== undefined &&
+    relativeTimeSeconds >= 0 &&
+    relativeTimeSeconds <= Math.max(0, Math.floor(elapsedSeconds))
+  );
+}
+
+export function getCodeforcesSubmissionVerdictStatus(
+  verdict?: string
+): CodeforcesSubmissionVerdictStatus {
+  const normalizedVerdict = verdict ?? "";
+
+  if (normalizedVerdict === "OK") {
+    return "accepted";
+  }
+
+  if (normalizedVerdict === "COMPILATION_ERROR") {
+    return "compilation-error";
+  }
+
+  if (PENDING_VERDICTS.has(normalizedVerdict)) {
+    return "pending";
+  }
+
+  return "rejected";
 }
 
 function buildProblems(
   configuration: ContestConfiguration,
-  contestProblems: CodeforcesProblem[]
+  submissions: CodeforcesSubmission[]
 ): ProblemMeta[] {
   const configuredColorsByLabel = new Map(
     configuration.problems.map((problem) => [problem.label, problem.balloonColor])
   );
+  const problemByIndex = new Map<string, ProblemMeta>();
 
-  return contestProblems.map((problem, index) => ({
-    id: problem.index,
-    label: problem.index,
-    color:
-      configuredColorsByLabel.get(problem.index) ??
-      FALLBACK_BALLOON_COLORS[index % FALLBACK_BALLOON_COLORS.length]
-  }));
+  configuration.problems.forEach((problem, index) => {
+    problemByIndex.set(problem.label, {
+      id: problem.label,
+      label: problem.label,
+      color:
+        configuredColorsByLabel.get(problem.label) ??
+        FALLBACK_BALLOON_COLORS[index % FALLBACK_BALLOON_COLORS.length]
+    });
+  });
+
+  submissions.forEach((submission) => {
+    const problemIndex = submission.problem.index;
+
+    if (!problemIndex || problemByIndex.has(problemIndex)) {
+      return;
+    }
+
+    problemByIndex.set(problemIndex, {
+      id: problemIndex,
+      label: problemIndex,
+      color:
+        configuredColorsByLabel.get(problemIndex) ??
+        FALLBACK_BALLOON_COLORS[problemByIndex.size % FALLBACK_BALLOON_COLORS.length]
+    });
+  });
+
+  return [...problemByIndex.values()].sort((leftProblem, rightProblem) =>
+    compareProblemIndex(leftProblem.id, rightProblem.id)
+  );
+}
+
+function isConsideredCodeforcesSubmission(
+  submission: CodeforcesSubmission,
+  elapsedLimitSeconds: number,
+  problemsByIndex: Set<string>
+): boolean {
+  return (
+    isCodeforcesSubmissionEligible(submission, elapsedLimitSeconds) &&
+    problemsByIndex.has(submission.problem.index)
+  );
+}
+
+function collectParticipantParties(
+  submissions: CodeforcesSubmission[]
+): CodeforcesParty[] {
+  const partiesByKey = new Map<string, CodeforcesParty>();
+
+  [...submissions]
+    .sort(compareSubmissionsChronologically)
+    .forEach((submission) => {
+      const partyKey = getPartyKey(submission.author);
+
+      if (partyKey === null || partiesByKey.has(partyKey)) {
+        return;
+      }
+
+      partiesByKey.set(partyKey, submission.author);
+    });
+
+  return [...partiesByKey.values()];
 }
 
 function buildTeamStanding(
-  row: CodeforcesRanklistRow,
+  party: CodeforcesParty,
   problems: ProblemMeta[],
   attemptsByProblemKey: Map<string, RelevantSubmissionAttempt[]>,
-  freezeStartSeconds: number
+  freezeStartSeconds: number,
+  freezeHiddenSubmissions: boolean
 ): TeamStanding {
-  const partyKey = getPartyKey(row.party) ?? buildFallbackPartyKey(row);
-  const members = row.party.members
+  const partyKey = getPartyKey(party) ?? buildFallbackPartyKey(party);
+  const members = party.members
     .map((member) => member.handle.trim())
     .filter((handle) => handle.length > 0);
-  const name = row.party.teamName?.trim() || members.join(" / ") || "Unnamed team";
-  const problemCells = problems.map((problem, problemIndex) => {
-    const problemResult = row.problemResults[problemIndex];
-    const attempts =
-      attemptsByProblemKey.get(`${partyKey}:${problem.id}`) ?? [];
+  const name = party.teamName?.trim() || members.join(" / ") || "Unnamed team";
+  const problemCells = problems.map((problem) => {
+    const attempts = attemptsByProblemKey.get(`${partyKey}:${problem.id}`) ?? [];
 
-    return buildProblemCell(problem, problemResult, attempts, freezeStartSeconds);
+    return buildProblemCell(
+      problem,
+      attempts,
+      freezeStartSeconds,
+      freezeHiddenSubmissions
+    );
   });
 
   return {
     id: partyKey,
-    rank: row.rank,
+    rank: 0,
     name,
     organization: undefined,
     members,
@@ -421,64 +414,105 @@ function buildTeamStanding(
 
 function buildProblemCell(
   problem: ProblemMeta,
-  problemResult: CodeforcesProblemResult | undefined,
   attempts: RelevantSubmissionAttempt[],
-  freezeStartSeconds: number
+  freezeStartSeconds: number,
+  freezeHiddenSubmissions: boolean
 ): ProblemCellState {
   const firstAcceptedAttempt = attempts.find((attempt) => attempt.isAccepted);
-  const finalWrongAttempts =
-    attempts.length > 0
-      ? attempts.filter((attempt) => attempt.isRejected).length
-      : Math.max(0, problemResult?.rejectedAttemptCount ?? 0);
-  const finalSolved =
-    firstAcceptedAttempt !== undefined || (problemResult?.points ?? 0) > 0;
-  const solveTimeSeconds =
-    firstAcceptedAttempt?.relativeTimeSeconds ??
-    problemResult?.bestSubmissionTimeSeconds;
+  const finalWrongAttempts = attempts.filter((attempt) => attempt.isRejected).length;
+  const finalSolved = firstAcceptedAttempt !== undefined;
+
+  if (!freezeHiddenSubmissions) {
+    if (finalSolved && firstAcceptedAttempt) {
+      return {
+        kind: "solved",
+        problemId: problem.id,
+        problemLabel: problem.label,
+        wrongAttempts: finalWrongAttempts,
+        solveTime: toContestMinute(firstAcceptedAttempt.relativeTimeSeconds),
+        solveTimeSeconds: firstAcceptedAttempt.relativeTimeSeconds,
+        solveSubmissionId: firstAcceptedAttempt.id,
+        penalty: computeIcpcPenalty(
+          firstAcceptedAttempt.relativeTimeSeconds,
+          finalWrongAttempts
+        ),
+        firstToSolve: false
+      };
+    }
+
+    if (finalWrongAttempts > 0) {
+      return {
+        kind: "failed",
+        problemId: problem.id,
+        problemLabel: problem.label,
+        wrongAttempts: finalWrongAttempts
+      };
+    }
+
+    return {
+      kind: "untouched",
+      problemId: problem.id,
+      problemLabel: problem.label
+    };
+  }
+
   const hiddenAttempts = attempts.filter(
     (attempt) => attempt.relativeTimeSeconds > freezeStartSeconds
   );
   const preFreezeWrongAttempts = attempts.filter(
-    (attempt) => attempt.isRejected && attempt.relativeTimeSeconds <= freezeStartSeconds
+    (attempt) =>
+      attempt.isRejected && attempt.relativeTimeSeconds <= freezeStartSeconds
   ).length;
-  const hiddenWrongAttempts = hiddenAttempts.filter((attempt) => attempt.isRejected).length;
+  const hiddenWrongAttempts = hiddenAttempts.filter(
+    (attempt) => attempt.isRejected
+  ).length;
   const solvedBeforeFreeze =
     finalSolved &&
-    solveTimeSeconds !== undefined &&
-    solveTimeSeconds <= freezeStartSeconds;
-  const hiddenSubmissions: HiddenSubmission[] = hiddenAttempts.map((attempt, attemptIndex) => ({
-    id: `${problem.id}-hidden-${attempt.id}-${attemptIndex}`,
-    contestMinute: toContestMinute(attempt.relativeTimeSeconds),
-    result: attempt.isAccepted ? "accepted" : "rejected"
-  }));
+    firstAcceptedAttempt !== undefined &&
+    firstAcceptedAttempt.relativeTimeSeconds <= freezeStartSeconds;
+  const hiddenSubmissions: HiddenSubmission[] = hiddenAttempts.map(
+    (attempt, attemptIndex) => ({
+      id: `${problem.id}-hidden-${attempt.id}-${attemptIndex}`,
+      contestMinute: toContestMinute(attempt.relativeTimeSeconds),
+      result: attempt.isAccepted ? "accepted" : "rejected"
+    })
+  );
 
-  if (solvedBeforeFreeze && solveTimeSeconds !== undefined) {
+  if (solvedBeforeFreeze && firstAcceptedAttempt) {
     return {
       kind: "solved",
       problemId: problem.id,
       problemLabel: problem.label,
       wrongAttempts: finalWrongAttempts,
-      solveTime: toContestMinute(solveTimeSeconds),
-      penalty: computeIcpcPenalty(solveTimeSeconds, finalWrongAttempts),
+      solveTime: toContestMinute(firstAcceptedAttempt.relativeTimeSeconds),
+      solveTimeSeconds: firstAcceptedAttempt.relativeTimeSeconds,
+      solveSubmissionId: firstAcceptedAttempt.id,
+      penalty: computeIcpcPenalty(
+        firstAcceptedAttempt.relativeTimeSeconds,
+        finalWrongAttempts
+      ),
       firstToSolve: false
     };
   }
 
   if (hiddenSubmissions.length > 0) {
-    const frozenSubmissionCount = hiddenSubmissions.length;
     const revealOutcome: PendingRevealOutcome = {
       result: finalSolved ? "solved" : "failed",
       hiddenWrongAttempts,
       finalWrongAttempts,
-      solveTime: finalSolved && solveTimeSeconds !== undefined ? toContestMinute(solveTimeSeconds) : null,
-      penalty: finalSolved && solveTimeSeconds !== undefined
-        ? computeIcpcPenalty(solveTimeSeconds, finalWrongAttempts)
-        : null,
-      lastHiddenContestMinute: getLastHiddenContestMinute(
-        attempts,
-        freezeStartSeconds,
-        solveTimeSeconds
-      ),
+      solveTime:
+        finalSolved && firstAcceptedAttempt
+          ? toContestMinute(firstAcceptedAttempt.relativeTimeSeconds)
+          : null,
+      penalty:
+        finalSolved && firstAcceptedAttempt
+          ? computeIcpcPenalty(
+              firstAcceptedAttempt.relativeTimeSeconds,
+              finalWrongAttempts
+            )
+          : null,
+      lastHiddenContestMinute:
+        hiddenSubmissions[hiddenSubmissions.length - 1]?.contestMinute ?? null,
       hiddenSubmissions
     };
 
@@ -487,17 +521,17 @@ function buildProblemCell(
       problemId: problem.id,
       problemLabel: problem.label,
       wrongAttempts: preFreezeWrongAttempts,
-      frozenSubmissionCount,
+      frozenSubmissionCount: hiddenSubmissions.length,
       revealOutcome
     };
   }
 
-  if (finalWrongAttempts > 0) {
+  if (preFreezeWrongAttempts > 0) {
     return {
       kind: "failed",
       problemId: problem.id,
       problemLabel: problem.label,
-      wrongAttempts: finalWrongAttempts
+      wrongAttempts: preFreezeWrongAttempts
     };
   }
 
@@ -508,41 +542,8 @@ function buildProblemCell(
   };
 }
 
-function buildRecentSubmissions(teams: TeamStanding[]): RecentSubmission[] {
-  const recentEntries = teams.flatMap((team) =>
-    team.problems.flatMap((cell) => {
-      if (cell.kind !== "queued" && cell.kind !== "frozen-pending") {
-        return [];
-      }
-
-      const contestMinute = cell.revealOutcome?.lastHiddenContestMinute ?? 0;
-
-      return [
-        {
-          id: `${team.id}-${cell.problemId}`,
-          contestMinute,
-          teamName: team.name,
-          problemLabel: cell.problemLabel,
-          summary: formatPendingSummary(cell.wrongAttempts, cell.frozenSubmissionCount),
-          kind: cell.kind
-        }
-      ];
-    })
-  );
-
-  return recentEntries
-    .sort(
-      (leftEntry, rightEntry) =>
-        rightEntry.contestMinute - leftEntry.contestMinute ||
-        leftEntry.problemLabel.localeCompare(rightEntry.problemLabel) ||
-        leftEntry.teamName.localeCompare(rightEntry.teamName)
-    )
-    .slice(0, 20);
-}
-
 function indexRelevantAttempts(
   submissions: CodeforcesSubmission[],
-  durationSeconds: number,
   problemsByIndex: Set<string>
 ): Map<string, RelevantSubmissionAttempt[]> {
   const attemptsByProblemKey = new Map<string, RelevantSubmissionAttempt[]>();
@@ -551,22 +552,16 @@ function indexRelevantAttempts(
     const partyKey = getPartyKey(submission.author);
     const problemIndex = submission.problem.index;
     const relativeTimeSeconds = submission.relativeTimeSeconds;
-    const verdict = submission.verdict ?? "";
+    const verdictStatus = getCodeforcesSubmissionVerdictStatus(submission.verdict);
 
     if (
       partyKey === null ||
       !problemsByIndex.has(problemIndex) ||
       relativeTimeSeconds === undefined ||
       relativeTimeSeconds < 0 ||
-      relativeTimeSeconds > durationSeconds
+      verdictStatus === "pending" ||
+      verdictStatus === "compilation-error"
     ) {
-      return;
-    }
-
-    const isAccepted = verdict === "OK";
-    const isRejected = isRejectedAttemptVerdict(verdict);
-
-    if (!isAccepted && !isRejected) {
       return;
     }
 
@@ -576,23 +571,18 @@ function indexRelevantAttempts(
     currentAttempts.push({
       id: submission.id,
       relativeTimeSeconds,
-      verdict,
-      isAccepted,
-      isRejected
+      verdict: submission.verdict ?? "",
+      isAccepted: verdictStatus === "accepted",
+      isRejected: verdictStatus === "rejected"
     });
 
     attemptsByProblemKey.set(problemKey, currentAttempts);
   });
 
   attemptsByProblemKey.forEach((attempts, problemKey) => {
-    const orderedAttempts = [...attempts].sort(
-      (leftAttempt, rightAttempt) =>
-        leftAttempt.relativeTimeSeconds - rightAttempt.relativeTimeSeconds ||
-        leftAttempt.id - rightAttempt.id
-    );
     const relevantAttempts: RelevantSubmissionAttempt[] = [];
 
-    for (const attempt of orderedAttempts) {
+    for (const attempt of attempts.sort(compareAttemptsChronologically)) {
       relevantAttempts.push(attempt);
 
       if (attempt.isAccepted) {
@@ -606,12 +596,265 @@ function indexRelevantAttempts(
   return attemptsByProblemKey;
 }
 
-function selectRelevantRows(rows: CodeforcesRanklistRow[]): {
-  rows: CodeforcesRanklistRow[];
-} {
-  return {
-    rows: rows.filter((row) => isIncludedParticipantType(row.party.participantType))
-  };
+function buildRecentSubmissions(
+  submissions: CodeforcesSubmission[],
+  teams: TeamStanding[],
+  revealState: {
+    pendingSubmissionIds?: ReadonlySet<number>;
+    revealedSubmissionIds?: ReadonlySet<number>;
+  }
+): RecentSubmission[] {
+  const teamsById = new Map(teams.map((team) => [team.id, team]));
+  const wrongAttemptCountsBySubmissionId = buildWrongAttemptCountsBySubmissionId(
+    submissions,
+    revealState.revealedSubmissionIds
+  );
+
+  return [...submissions]
+    .sort(compareSubmissionsReverseChronologically)
+    .slice(0, LIVE_RECENT_SUBMISSION_LIMIT)
+    .map((submission) => {
+      const partyKey = getPartyKey(submission.author) ?? "";
+      const team = teamsById.get(partyKey);
+      const status = getRecentSubmissionStatus(submission, revealState);
+      const wrongAttempts = wrongAttemptCountsBySubmissionId.get(submission.id) ?? 0;
+
+      return {
+        id: `cf-submission-${submission.id}`,
+        teamId: partyKey || undefined,
+        contestMinute: toContestMinute(submission.relativeTimeSeconds ?? 0),
+        teamName: team?.name ?? getPartyDisplayName(submission.author),
+        problemLabel: submission.problem.index,
+        summary: formatRecentSubmissionSummary(
+          status,
+          toContestMinute(submission.relativeTimeSeconds ?? 0),
+          wrongAttempts
+        ),
+        kind: status === "pending" ? "queued" : "frozen-pending",
+        status
+      };
+    });
+}
+
+function buildWrongAttemptCountsBySubmissionId(
+  submissions: CodeforcesSubmission[],
+  revealedSubmissionIds?: ReadonlySet<number>
+): Map<number, number> {
+  const wrongAttemptCountsBySubmissionId = new Map<number, number>();
+  const problemStates = new Map<string, { wrongAttempts: number; solved: boolean }>();
+
+  [...submissions].sort(compareSubmissionsChronologically).forEach((submission) => {
+    if (
+      revealedSubmissionIds !== undefined &&
+      !revealedSubmissionIds.has(submission.id)
+    ) {
+      return;
+    }
+
+    const partyKey = getPartyKey(submission.author);
+
+    if (partyKey === null) {
+      return;
+    }
+
+    const problemKey = `${partyKey}:${submission.problem.index}`;
+    const problemState =
+      problemStates.get(problemKey) ?? { wrongAttempts: 0, solved: false };
+    const verdictStatus = getCodeforcesSubmissionVerdictStatus(submission.verdict);
+
+    if (problemState.solved) {
+      wrongAttemptCountsBySubmissionId.set(submission.id, problemState.wrongAttempts);
+      return;
+    }
+
+    if (verdictStatus === "rejected") {
+      problemState.wrongAttempts += 1;
+    }
+
+    wrongAttemptCountsBySubmissionId.set(
+      submission.id,
+      problemState.wrongAttempts
+    );
+
+    if (verdictStatus === "accepted") {
+      problemState.solved = true;
+    }
+
+    problemStates.set(problemKey, problemState);
+  });
+
+  return wrongAttemptCountsBySubmissionId;
+}
+
+function getRecentSubmissionStatus(
+  submission: CodeforcesSubmission,
+  revealState: {
+    pendingSubmissionIds?: ReadonlySet<number>;
+    revealedSubmissionIds?: ReadonlySet<number>;
+  }
+): CodeforcesSubmissionVerdictStatus {
+  if (
+    revealState.pendingSubmissionIds?.has(submission.id) &&
+    !revealState.revealedSubmissionIds?.has(submission.id)
+  ) {
+    return "pending";
+  }
+
+  if (
+    revealState.revealedSubmissionIds !== undefined &&
+    !revealState.revealedSubmissionIds.has(submission.id)
+  ) {
+    return "pending";
+  }
+
+  return getCodeforcesSubmissionVerdictStatus(submission.verdict);
+}
+
+function formatRecentSubmissionSummary(
+  status: CodeforcesSubmissionVerdictStatus,
+  contestMinute: number,
+  wrongAttempts: number
+): string {
+  switch (status) {
+    case "accepted":
+      return `OK ${contestMinute}`;
+    case "rejected":
+      return `X +${wrongAttempts}`;
+    case "compilation-error":
+      return "CE +0";
+    case "pending":
+      return `? ${contestMinute}`;
+  }
+}
+
+function applyFirstToSolveFlags(teams: TeamStanding[]): TeamStanding[] {
+  const nextTeams = teams.map((team) => ({
+    ...team,
+    problems: [...team.problems]
+  }));
+
+  if (nextTeams.length === 0) {
+    return nextTeams;
+  }
+
+  for (let problemIndex = 0; problemIndex < nextTeams[0].problems.length; problemIndex += 1) {
+    const solvedEntries = nextTeams
+      .map((team, teamIndex) => {
+        const cell = team.problems[problemIndex];
+
+        return isSolvedCell(cell)
+          ? {
+              teamIndex,
+              cell
+            }
+          : null;
+      })
+      .filter(
+        (
+          entry
+        ): entry is { teamIndex: number; cell: SolvedProblemCell } =>
+          entry !== null
+      )
+      .sort(
+        (leftEntry, rightEntry) =>
+          getSolvedCellTimeSeconds(leftEntry.cell) -
+            getSolvedCellTimeSeconds(rightEntry.cell) ||
+          (leftEntry.cell.solveSubmissionId ?? Number.MAX_SAFE_INTEGER) -
+            (rightEntry.cell.solveSubmissionId ?? Number.MAX_SAFE_INTEGER) ||
+          leftEntry.teamIndex - rightEntry.teamIndex
+      );
+
+    solvedEntries.forEach(({ teamIndex, cell }, solvedIndex) => {
+      nextTeams[teamIndex].problems[problemIndex] = {
+        ...cell,
+        firstToSolve: solvedIndex === 0
+      };
+    });
+  }
+
+  return nextTeams.map((team) => ({
+    ...team,
+    solved: countSolvedProblems(team.problems),
+    penalty: calculateTeamPenalty(team.problems),
+    pendingProblemLabels: collectPendingProblemLabels(team.problems)
+  }));
+}
+
+function rankTeams(teams: TeamStanding[]): TeamStanding[] {
+  const sortedTeams = [...teams].sort(
+    (leftTeam, rightTeam) =>
+      rightTeam.solved - leftTeam.solved ||
+      leftTeam.penalty - rightTeam.penalty ||
+      getScoreAchievedAtSeconds(leftTeam) - getScoreAchievedAtSeconds(rightTeam) ||
+      leftTeam.name.localeCompare(rightTeam.name)
+  );
+  let currentRank = 0;
+  let previousSolved = Number.NaN;
+  let previousPenalty = Number.NaN;
+  let previousScoreAchievedAt = Number.NaN;
+
+  return sortedTeams.map((team, index) => {
+    const scoreAchievedAt = getScoreAchievedAtSeconds(team);
+
+    if (
+      team.solved !== previousSolved ||
+      team.penalty !== previousPenalty ||
+      scoreAchievedAt !== previousScoreAchievedAt
+    ) {
+      currentRank = index + 1;
+      previousSolved = team.solved;
+      previousPenalty = team.penalty;
+      previousScoreAchievedAt = scoreAchievedAt;
+    }
+
+    return {
+      ...team,
+      rank: currentRank
+    };
+  });
+}
+
+function countSolvedProblems(problemCells: ProblemCellState[]): number {
+  return problemCells.filter(isSolvedCell).length;
+}
+
+function calculateTeamPenalty(problemCells: ProblemCellState[]): number {
+  return problemCells.reduce(
+    (totalPenalty, cell) =>
+      totalPenalty + (cell.kind === "solved" ? cell.penalty : 0),
+    0
+  );
+}
+
+function collectPendingProblemLabels(problemCells: ProblemCellState[]): string[] {
+  return problemCells
+    .filter(
+      (
+        cell
+      ): cell is Extract<ProblemCellState, { kind: "queued" | "frozen-pending" }> =>
+        cell.kind === "queued" || cell.kind === "frozen-pending"
+    )
+    .map((cell) => cell.problemLabel);
+}
+
+function getScoreAchievedAtSeconds(team: TeamStanding): number {
+  const solvedTimes = team.problems
+    .filter(isSolvedCell)
+    .map((cell) => getSolvedCellTimeSeconds(cell));
+
+  return solvedTimes.length > 0 ? Math.max(...solvedTimes) : 0;
+}
+
+function getSolvedCellTimeSeconds(cell: SolvedProblemCell): number {
+  return cell.solveTimeSeconds ?? cell.solveTime * 60;
+}
+
+function computeIcpcPenalty(relativeTimeSeconds: number, wrongAttempts: number): number {
+  return toContestMinute(relativeTimeSeconds) + wrongAttempts * 20;
+}
+
+function toContestMinute(relativeTimeSeconds: number): number {
+  return Math.max(0, Math.floor(relativeTimeSeconds / 60));
 }
 
 function isIncludedParticipantType(
@@ -642,157 +885,75 @@ function getPartyKey(party: CodeforcesParty): string | null {
   return null;
 }
 
-function buildFallbackPartyKey(row: CodeforcesRanklistRow): string {
-  return `rank-${row.rank}-${row.penalty}-${row.points}`;
+function buildFallbackPartyKey(party: CodeforcesParty): string {
+  return `participant-${sanitizeKeySegment(
+    party.teamName || party.members.map((member) => member.handle).join("-") || "unknown"
+  )}`;
 }
 
-function applyFirstToSolveFlags(teams: TeamStanding[]): TeamStanding[] {
-  const nextTeams = teams.map((team) => ({
-    ...team,
-    problems: [...team.problems]
-  }));
+function getPartyDisplayName(party: CodeforcesParty): string {
+  const members = party.members
+    .map((member) => member.handle.trim())
+    .filter((handle) => handle.length > 0);
 
-  if (nextTeams.length === 0) {
-    return nextTeams;
-  }
-
-  for (let problemIndex = 0; problemIndex < nextTeams[0].problems.length; problemIndex += 1) {
-    const solvedEntries = nextTeams
-      .map((team, teamIndex) => {
-        const cell = team.problems[problemIndex];
-
-        return cell.kind === "solved"
-          ? {
-              teamIndex,
-              solveTime: cell.solveTime
-            }
-          : null;
-      })
-      .filter(
-        (
-          entry
-        ): entry is { teamIndex: number; solveTime: number } =>
-          entry !== null
-      )
-      .sort(
-        (leftEntry, rightEntry) =>
-          leftEntry.solveTime - rightEntry.solveTime ||
-          leftEntry.teamIndex - rightEntry.teamIndex
-      );
-
-    solvedEntries.forEach((entry, solvedIndex) => {
-      const solvedCell = nextTeams[entry.teamIndex].problems[problemIndex];
-
-      if (solvedCell.kind !== "solved") {
-        return;
-      }
-
-      nextTeams[entry.teamIndex].problems[problemIndex] = {
-        ...solvedCell,
-        firstToSolve: solvedIndex === 0
-      };
-    });
-  }
-
-  return nextTeams.map((team) => ({
-    ...team,
-    solved: countSolvedProblems(team.problems),
-    penalty: calculateTeamPenalty(team.problems),
-    pendingProblemLabels: collectPendingProblemLabels(team.problems)
-  }));
+  return party.teamName?.trim() || members.join(" / ") || "Unknown participant";
 }
 
-function rankTeams(teams: TeamStanding[]): TeamStanding[] {
-  const sortedTeams = [...teams].sort(
-    (leftTeam, rightTeam) =>
-      rightTeam.solved - leftTeam.solved ||
-      leftTeam.penalty - rightTeam.penalty ||
-      leftTeam.name.localeCompare(rightTeam.name)
+function compareAttemptsChronologically(
+  leftAttempt: RelevantSubmissionAttempt,
+  rightAttempt: RelevantSubmissionAttempt
+): number {
+  return (
+    leftAttempt.relativeTimeSeconds - rightAttempt.relativeTimeSeconds ||
+    leftAttempt.id - rightAttempt.id
   );
-  let currentRank = 0;
-  let previousSolved = Number.NaN;
-  let previousPenalty = Number.NaN;
+}
 
-  return sortedTeams.map((team, index) => {
-    if (team.solved !== previousSolved || team.penalty !== previousPenalty) {
-      currentRank = index + 1;
-      previousSolved = team.solved;
-      previousPenalty = team.penalty;
-    }
+function compareSubmissionsChronologically(
+  leftSubmission: CodeforcesSubmission,
+  rightSubmission: CodeforcesSubmission
+): number {
+  return (
+    (leftSubmission.relativeTimeSeconds ?? 0) -
+      (rightSubmission.relativeTimeSeconds ?? 0) ||
+    leftSubmission.id - rightSubmission.id
+  );
+}
 
-    return {
-      ...team,
-      rank: currentRank
-    };
+function compareSubmissionsReverseChronologically(
+  leftSubmission: CodeforcesSubmission,
+  rightSubmission: CodeforcesSubmission
+): number {
+  return (
+    (rightSubmission.relativeTimeSeconds ?? 0) -
+      (leftSubmission.relativeTimeSeconds ?? 0) ||
+    rightSubmission.id - leftSubmission.id
+  );
+}
+
+function compareProblemIndex(leftIndex: string, rightIndex: string): number {
+  return leftIndex.localeCompare(rightIndex, undefined, {
+    numeric: true,
+    sensitivity: "base"
   });
 }
 
-function countSolvedProblems(problemCells: ProblemCellState[]): number {
-  return problemCells.filter((cell) => cell.kind === "solved").length;
+function isSolvedCell(cell: ProblemCellState): cell is SolvedProblemCell {
+  return cell.kind === "solved";
 }
 
-function calculateTeamPenalty(problemCells: ProblemCellState[]): number {
-  return problemCells.reduce(
-    (totalPenalty, cell) =>
-      totalPenalty + (cell.kind === "solved" ? cell.penalty : 0),
-    0
-  );
+function formatStatusUpdateLabel(updatedAt: Date, elapsedSeconds: number): string {
+  return `Loaded from Codeforces contest.status at ${updatedAt.toLocaleTimeString()} through ${formatElapsedSeconds(
+    elapsedSeconds
+  )}`;
 }
 
-function collectPendingProblemLabels(problemCells: ProblemCellState[]): string[] {
-  return problemCells
-    .filter(
-      (
-        cell
-      ): cell is Extract<ProblemCellState, { kind: "queued" | "frozen-pending" }> =>
-        cell.kind === "queued" || cell.kind === "frozen-pending"
-    )
-    .map((cell) => cell.problemLabel);
-}
+function formatElapsedSeconds(totalSeconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
 
-function formatPendingSummary(
-  wrongAttempts: number,
-  frozenSubmissionCount: number
-): string {
-  const mainLabel = frozenSubmissionCount > 1 ? `(${frozenSubmissionCount})` : "?";
-
-  return `${mainLabel} +${wrongAttempts}`;
-}
-
-function computeIcpcPenalty(relativeTimeSeconds: number, wrongAttempts: number): number {
-  return toContestMinute(relativeTimeSeconds) + wrongAttempts * 20;
-}
-
-function getLastHiddenContestMinute(
-  attempts: RelevantSubmissionAttempt[],
-  freezeStartSeconds: number,
-  solveTimeSeconds?: number
-): number | null {
-  const hiddenAttempts = attempts.filter(
-    (attempt) => attempt.relativeTimeSeconds > freezeStartSeconds
-  );
-
-  if (hiddenAttempts.length > 0) {
-    return toContestMinute(hiddenAttempts[hiddenAttempts.length - 1].relativeTimeSeconds);
-  }
-
-  if (solveTimeSeconds !== undefined && solveTimeSeconds > freezeStartSeconds) {
-    return toContestMinute(solveTimeSeconds);
-  }
-
-  if (freezeStartSeconds > 0) {
-    return toContestMinute(freezeStartSeconds);
-  }
-
-  return null;
-}
-
-function toContestMinute(relativeTimeSeconds: number): number {
-  return Math.max(0, Math.floor(relativeTimeSeconds / 60));
-}
-
-function isRejectedAttemptVerdict(verdict: string): boolean {
-  return verdict.length > 0 && verdict !== "OK" && !NON_PENALIZED_VERDICTS.has(verdict);
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
 function sanitizeKeySegment(value: string): string {
@@ -817,5 +978,10 @@ function parsePositiveInteger(value: string): number | null {
   }
 
   const parsedValue = Number.parseInt(value, 10);
+
   return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : null;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }
