@@ -305,7 +305,7 @@ function createNextCell(
   }
 
   if (remainingHiddenSubmissions.length === 0) {
-    return wrongAttempts > 0
+    return wrongAttempts > 0 || hiddenSubmission.result === "compilation-error"
       ? {
           kind: "failed",
           problemId: cell.problemId,
