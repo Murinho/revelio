@@ -24,15 +24,12 @@ interface UseContestSnapshotResult {
 }
 
 interface LiveSubmissionTracker {
-  initialized: boolean;
   knownEligibleSubmissionIds: Set<number>;
   pendingSubmissionIds: Set<number>;
   revealedSubmissionIds: Set<number>;
-  revealAtBySubmissionId: Map<number, number>;
 }
 
 const LIVE_SCOREBOARD_POLL_INTERVAL_MS = 10_000;
-const LIVE_SUBMISSION_REVEAL_DELAY_MS = 5_000;
 
 export function useContestSnapshot(
   configuration: ContestConfiguration | null,
@@ -133,26 +130,14 @@ function subscribeToLiveCodeforcesSnapshot({
   let polling = false;
   let hasLoadedSnapshot = false;
   let pollIntervalId: number | null = null;
-  let revealTimeoutId: number | null = null;
   let latestSubmissions: CodeforcesSubmission[] = [];
   let lastPolledElapsedSeconds = elapsedSecondsRef.current;
   const tracker = createLiveSubmissionTracker();
-
-  const clearRevealTimeout = () => {
-    if (revealTimeoutId === null) {
-      return;
-    }
-
-    window.clearTimeout(revealTimeoutId);
-    revealTimeoutId = null;
-  };
 
   const rebuildSnapshot = () => {
     if (!active) {
       return;
     }
-
-    markDueReveals(tracker, Date.now());
 
     setSnapshot(
       buildCodeforcesContestSnapshot(configuration, contestId, latestSubmissions, {
@@ -166,22 +151,6 @@ function subscribeToLiveCodeforcesSnapshot({
     setError(null);
     setLoading(false);
     hasLoadedSnapshot = true;
-    scheduleNextReveal();
-  };
-
-  const scheduleNextReveal = () => {
-    clearRevealTimeout();
-
-    const nextRevealAt = getNextRevealAt(tracker);
-
-    if (nextRevealAt === null) {
-      return;
-    }
-
-    revealTimeoutId = window.setTimeout(
-      rebuildSnapshot,
-      Math.max(0, nextRevealAt - Date.now())
-    );
   };
 
   const pollCodeforcesStatus = async () => {
@@ -211,8 +180,7 @@ function subscribeToLiveCodeforcesSnapshot({
       updateLiveSubmissionTracker(
         tracker,
         latestSubmissions,
-        pollElapsedSeconds,
-        Date.now()
+        pollElapsedSeconds
       );
       rebuildSnapshot();
     } catch (loadError) {
@@ -237,7 +205,6 @@ function subscribeToLiveCodeforcesSnapshot({
 
   return () => {
     active = false;
-    clearRevealTimeout();
 
     if (pollIntervalId !== null) {
       window.clearInterval(pollIntervalId);
@@ -247,22 +214,17 @@ function subscribeToLiveCodeforcesSnapshot({
 
 function createLiveSubmissionTracker(): LiveSubmissionTracker {
   return {
-    initialized: false,
     knownEligibleSubmissionIds: new Set(),
     pendingSubmissionIds: new Set(),
-    revealedSubmissionIds: new Set(),
-    revealAtBySubmissionId: new Map()
+    revealedSubmissionIds: new Set()
   };
 }
 
 function updateLiveSubmissionTracker(
   tracker: LiveSubmissionTracker,
   submissions: CodeforcesSubmission[],
-  elapsedSeconds: number,
-  nowMs: number
+  elapsedSeconds: number
 ) {
-  markDueReveals(tracker, nowMs);
-
   submissions
     .filter((submission) => isCodeforcesSubmissionEligible(submission, elapsedSeconds))
     .sort(compareSubmissionsChronologically)
@@ -274,58 +236,20 @@ function updateLiveSubmissionTracker(
       if (!isKnown) {
         tracker.knownEligibleSubmissionIds.add(submission.id);
 
-        if (!tracker.initialized && hasFinalVerdict) {
+        if (hasFinalVerdict) {
           tracker.revealedSubmissionIds.add(submission.id);
           return;
         }
 
         tracker.pendingSubmissionIds.add(submission.id);
-
-        if (hasFinalVerdict) {
-          tracker.revealAtBySubmissionId.set(
-            submission.id,
-            nowMs + LIVE_SUBMISSION_REVEAL_DELAY_MS
-          );
-        }
-
         return;
       }
 
-      if (
-        tracker.pendingSubmissionIds.has(submission.id) &&
-        hasFinalVerdict &&
-        !tracker.revealAtBySubmissionId.has(submission.id)
-      ) {
-        tracker.revealAtBySubmissionId.set(
-          submission.id,
-          nowMs + LIVE_SUBMISSION_REVEAL_DELAY_MS
-        );
+      if (tracker.pendingSubmissionIds.has(submission.id) && hasFinalVerdict) {
+        tracker.pendingSubmissionIds.delete(submission.id);
+        tracker.revealedSubmissionIds.add(submission.id);
       }
     });
-
-  tracker.initialized = true;
-}
-
-function markDueReveals(tracker: LiveSubmissionTracker, nowMs: number) {
-  tracker.revealAtBySubmissionId.forEach((revealAt, submissionId) => {
-    if (revealAt > nowMs) {
-      return;
-    }
-
-    tracker.revealedSubmissionIds.add(submissionId);
-    tracker.pendingSubmissionIds.delete(submissionId);
-    tracker.revealAtBySubmissionId.delete(submissionId);
-  });
-}
-
-function getNextRevealAt(tracker: LiveSubmissionTracker): number | null {
-  const revealTimes = [...tracker.revealAtBySubmissionId.values()];
-
-  if (revealTimes.length === 0) {
-    return null;
-  }
-
-  return Math.min(...revealTimes);
 }
 
 function compareSubmissionsChronologically(
