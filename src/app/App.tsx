@@ -351,6 +351,7 @@ export function App() {
           <aside className="app__sidebar">
             <TimerPanel clock={contestClock} snapshot={snapshot} />
             <RecentSubmissionsPanel
+              problems={snapshot.problems}
               submissions={snapshot.recentSubmissions}
               teams={snapshot.teams}
             />
