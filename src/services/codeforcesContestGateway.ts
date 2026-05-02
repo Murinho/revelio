@@ -839,7 +839,7 @@ function formatRecentSubmissionSummary(
     case "rejected":
       return `X +${wrongAttempts}`;
     case "compilation-error":
-      return "CE +0";
+      return `X +${wrongAttempts}`;
     case "pending":
       return `? ${contestMinute}`;
   }

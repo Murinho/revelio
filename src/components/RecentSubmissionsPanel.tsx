@@ -29,7 +29,7 @@ function getSubmissionCellClass(submission: RecentSubmission) {
     case "rejected":
       return "problem-cell--failed";
     case "compilation-error":
-      return "problem-cell--untouched";
+      return "problem-cell--failed";
     case "pending":
     default:
       return "problem-cell--pending";
