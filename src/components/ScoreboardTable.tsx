@@ -11,6 +11,8 @@ interface ScoreboardTableProps {
   lockUserScroll?: boolean;
   fillViewport?: boolean;
   visibleTeamsAboveHighlighted?: number;
+  highlightedTeamViewportAnchor?: number;
+  firstToSolveTwinkleMinute?: number | null;
 }
 
 const ROW_REORDER_DURATION_MS = 1500;
@@ -27,7 +29,9 @@ export function ScoreboardTable({
   autoFollowHighlightedTeam = false,
   lockUserScroll = false,
   fillViewport = false,
-  visibleTeamsAboveHighlighted = 0
+  visibleTeamsAboveHighlighted = 0,
+  highlightedTeamViewportAnchor,
+  firstToSolveTwinkleMinute = null
 }: ScoreboardTableProps) {
   const scrollElementRef = useRef<HTMLDivElement>(null);
   const tableElementRef = useRef<HTMLTableElement>(null);
@@ -91,7 +95,8 @@ export function ScoreboardTable({
           scrollElement,
           highlightedRowElement,
           tableElement,
-          visibleTeamsAboveHighlighted
+          visibleTeamsAboveHighlighted,
+          highlightedTeamViewportAnchor
         );
         const scrollDistance = centeredScrollTop - scrollElement.scrollTop;
         const previousHighlightedTeamId = previousHighlightedTeamIdRef.current;
@@ -109,6 +114,7 @@ export function ScoreboardTable({
               highlightedRowElement,
               tableElement,
               visibleTeamsAboveHighlighted,
+              highlightedTeamViewportAnchor,
               settleCenterFrameRef
             );
           } else {
@@ -126,7 +132,13 @@ export function ScoreboardTable({
 
     previousRowTopsRef.current = nextRowTops;
     previousHighlightedTeamIdRef.current = highlightedTeamId;
-  }, [autoFollowHighlightedTeam, highlightedTeamId, teams, visibleTeamsAboveHighlighted]);
+  }, [
+    autoFollowHighlightedTeam,
+    highlightedTeamId,
+    highlightedTeamViewportAnchor,
+    teams,
+    visibleTeamsAboveHighlighted
+  ]);
 
   useEffect(() => {
     if (!lockUserScroll) {
@@ -184,7 +196,8 @@ export function ScoreboardTable({
         scrollElement,
         highlightedRowElement,
         tableElement,
-        visibleTeamsAboveHighlighted
+        visibleTeamsAboveHighlighted,
+        highlightedTeamViewportAnchor
       );
     }
 
@@ -193,7 +206,12 @@ export function ScoreboardTable({
     return () => {
       window.removeEventListener("resize", handleResize);
     };
-  }, [autoFollowHighlightedTeam, highlightedTeamId, visibleTeamsAboveHighlighted]);
+  }, [
+    autoFollowHighlightedTeam,
+    highlightedTeamId,
+    highlightedTeamViewportAnchor,
+    visibleTeamsAboveHighlighted
+  ]);
 
   function getRankCellClass(rank: number) {
     if (rank === 1) {
@@ -291,7 +309,11 @@ export function ScoreboardTable({
                     className="scoreboard-table__cell scoreboard-table__cell--problem"
                     key={`${team.id}-${cell.problemId}`}
                   >
-                    <ProblemCell cell={cell} problem={problems[index]} />
+                    <ProblemCell
+                      cell={cell}
+                      firstToSolveTwinkleMinute={firstToSolveTwinkleMinute}
+                      problem={problems[index]}
+                    />
                   </td>
                 ))}
               </tr>
@@ -321,13 +343,26 @@ function getCenteredRowScrollTop(
   scrollElement: HTMLDivElement,
   rowElement: HTMLTableRowElement,
   tableElement: HTMLTableElement | null,
-  visibleTeamsAboveHighlighted: number
+  visibleTeamsAboveHighlighted: number,
+  viewportAnchor?: number
 ): number {
   const rowTop = getRowTopWithinScrollViewport(rowElement, tableElement);
+  const rowHeight = rowElement.getBoundingClientRect().height;
   const rowSpacing = getRowSpacing(rowElement);
   const stickyHeaderHeight = getStickyHeaderHeight(tableElement);
-  const desiredRowTop =
+  const desiredTopByVisibleRows =
     stickyHeaderHeight + Math.max(0, visibleTeamsAboveHighlighted) * rowSpacing;
+  const desiredTopByViewport =
+    viewportAnchor === undefined
+      ? desiredTopByVisibleRows
+      : stickyHeaderHeight +
+        Math.max(0, scrollElement.clientHeight - stickyHeaderHeight - rowHeight) *
+          clamp(viewportAnchor, 0, 1);
+  const desiredRowTop = clamp(
+    Math.max(desiredTopByVisibleRows, desiredTopByViewport),
+    stickyHeaderHeight,
+    Math.max(stickyHeaderHeight, scrollElement.clientHeight - rowHeight)
+  );
   const targetScrollTop =
     rowTop - desiredRowTop;
 
@@ -378,6 +413,7 @@ function scheduleImmediateRecenter(
   rowElement: HTMLTableRowElement,
   tableElement: HTMLTableElement,
   visibleTeamsAboveHighlighted: number,
+  viewportAnchor: number | undefined,
   animationFrameRef: React.MutableRefObject<number | null>
 ) {
   stopAnimationFrame(animationFrameRef);
@@ -387,7 +423,8 @@ function scheduleImmediateRecenter(
       scrollElement,
       rowElement,
       tableElement,
-      visibleTeamsAboveHighlighted
+      visibleTeamsAboveHighlighted,
+      viewportAnchor
     );
     animationFrameRef.current = null;
   });

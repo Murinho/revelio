@@ -3,10 +3,15 @@ import { ProblemCellState, ProblemMeta } from "../domain/types";
 
 interface ProblemCellProps {
   cell: ProblemCellState;
+  firstToSolveTwinkleMinute?: number | null;
   problem: ProblemMeta;
 }
 
-export function ProblemCell({ cell, problem }: ProblemCellProps) {
+export function ProblemCell({
+  cell,
+  firstToSolveTwinkleMinute = null,
+  problem
+}: ProblemCellProps) {
   if (cell.kind === "untouched") {
     return (
       <div
@@ -31,8 +36,8 @@ export function ProblemCell({ cell, problem }: ProblemCellProps) {
   }
 
   if (cell.kind === "queued" || cell.kind === "frozen-pending") {
-    const mainLabel =
-      cell.frozenSubmissionCount > 1 ? `(${cell.frozenSubmissionCount})` : "?";
+    const mainLabel = formatPendingMainLabel(cell.frozenSubmissionCount);
+    const bottomLabel = `+${cell.wrongAttempts}`;
 
     return (
       <div
@@ -40,14 +45,25 @@ export function ProblemCell({ cell, problem }: ProblemCellProps) {
         title={`Problem ${cell.problemLabel}: ${cell.kind}`}
       >
         <span className="problem-cell__main">{mainLabel}</span>
-        <span className="problem-cell__bottom">+{cell.wrongAttempts}</span>
+        <span className="problem-cell__bottom">{bottomLabel}</span>
       </div>
     );
   }
 
+  const shouldTwinkleFirstToSolve =
+    cell.firstToSolve && firstToSolveTwinkleMinute !== null;
+  const solvedClassName = [
+    "problem-cell",
+    "problem-cell--solved",
+    cell.firstToSolve ? "problem-cell--first-to-solve" : "",
+    shouldTwinkleFirstToSolve ? "problem-cell--first-to-solve-twinkle" : ""
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div
-      className="problem-cell problem-cell--solved"
+      className={solvedClassName}
       title={`Problem ${cell.problemLabel}: solved`}
     >
       <div
@@ -62,4 +78,12 @@ export function ProblemCell({ cell, problem }: ProblemCellProps) {
       </span>
     </div>
   );
+}
+
+function formatPendingMainLabel(frozenSubmissionCount: number): string {
+  const previousPendingSubmissions = Math.max(0, frozenSubmissionCount - 1);
+
+  return previousPendingSubmissions > 0
+    ? `(${previousPendingSubmissions})`
+    : "?";
 }

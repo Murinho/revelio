@@ -1,11 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import {
+  calculateContestEndDate,
+  calculateDurationMinutesFromLocalEndDateTimeInputValue,
   ContestConfiguration,
   MAX_PROBLEM_COUNT,
+  formatLocalEndSummary,
   formatFreezeWindowLabel,
-  formatUtcSummary,
-  resizeContestProblems
+  formatLocalStartSummary,
+  formatLocalUtcOffset,
+  parseUtcDateTimeInputValue,
+  resizeContestProblems,
+  toLocalEndDateTimeInputValue,
+  toLocalStartDateTimeInputValue,
+  toUtcStartDateTimeInputValue
 } from "../domain/contestConfiguration";
 import { Panel } from "./Panel";
 import "./ContestSetupScreen.css";
@@ -35,19 +43,38 @@ export function ContestSetupScreen({
   onProceed
 }: ContestSetupScreenProps) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
+  const [draftLocalEndAt, setDraftLocalEndAt] = useState<string | null>(null);
+  const [endInputError, setEndInputError] = useState<string | null>(null);
   const problemCount = configuration.problems.length;
   const hasCredentials =
     configuration.codeforces.apiKey.trim().length > 0 &&
     configuration.codeforces.apiSecret.trim().length > 0;
   const hasContestUrl = configuration.contestUrl.trim().length > 0;
   const shareableScoreboardUrl = `${window.location.origin}${shareableScoreboardPath}`;
+  const localStartAt = toLocalStartDateTimeInputValue(configuration.startAtUtc);
+  const localEndAt = toLocalEndDateTimeInputValue(
+    configuration.startAtUtc,
+    configuration.durationMinutes
+  );
+  const minimumLocalEndAt = toLocalEndDateTimeInputValue(configuration.startAtUtc, 1);
+  const displayedLocalEndAt = draftLocalEndAt ?? localEndAt;
+  const localUtcOffset = formatLocalUtcOffset(configuration.startAtUtc);
+  const timingValidationMessage = getTimingValidationMessage(configuration);
+  const visibleTimingError = endInputError ?? timingValidationMessage;
   const scoreboardStatus = scoreboardError
     ? "The contest feed could not be loaded from Codeforces. Double-check the URL or fall back to the mock preview for layout work."
     : isScoreboardLoading
       ? "The scoreboard is loading live Codeforces standings and submissions. You can keep adjusting the setup while it finishes."
       : hasContestUrl
-        ? "The scoreboard will use the public Codeforces contest data behind this URL and apply your freeze window and balloon colors."
+        ? hasCredentials
+          ? "The scoreboard will use signed Codeforces contest data behind this URL and apply your freeze window and balloon colors."
+          : "Enter Codeforces API credentials to load the live standings and submissions behind this URL."
         : "The scoreboard preview is ready with mock data and will reflect your contest title, timing, problem count, and balloon palette.";
+
+  useEffect(() => {
+    setDraftLocalEndAt(null);
+    setEndInputError(null);
+  }, [configuration.startAtUtc, configuration.durationMinutes]);
 
   function updateField<K extends keyof ContestConfiguration>(
     field: K,
@@ -66,8 +93,17 @@ export function ContestSetupScreen({
     });
   }
 
+  function handleStartDateTimeChange(nextLocalStartAt: string) {
+    setDraftLocalEndAt(null);
+    setEndInputError(null);
+    updateField("startAtUtc", toUtcStartDateTimeInputValue(nextLocalStartAt));
+  }
+
   function handleDurationChange(nextDurationMinutes: number) {
-    const safeDurationMinutes = Math.max(1, nextDurationMinutes);
+    const safeDurationMinutes = normalizeDurationMinutes(nextDurationMinutes);
+
+    setDraftLocalEndAt(null);
+    setEndInputError(null);
 
     onChange({
       ...configuration,
@@ -75,6 +111,39 @@ export function ContestSetupScreen({
       freezeDurationMinutes: Math.min(
         configuration.freezeDurationMinutes,
         safeDurationMinutes
+      )
+    });
+  }
+
+  function handleEndDateTimeChange(nextLocalEndAt: string) {
+    setDraftLocalEndAt(nextLocalEndAt);
+
+    if (!nextLocalEndAt) {
+      setEndInputError("Choose an end date and time later than the contest start.");
+      return;
+    }
+
+    const nextDurationMinutes =
+      calculateDurationMinutesFromLocalEndDateTimeInputValue(
+        configuration.startAtUtc,
+        nextLocalEndAt
+      );
+
+    if (nextDurationMinutes === null) {
+      setEndInputError(
+        "End date and time must be strictly later than the contest start."
+      );
+      return;
+    }
+
+    setDraftLocalEndAt(null);
+    setEndInputError(null);
+    onChange({
+      ...configuration,
+      durationMinutes: nextDurationMinutes,
+      freezeDurationMinutes: Math.min(
+        configuration.freezeDurationMinutes,
+        nextDurationMinutes
       )
     });
   }
@@ -115,6 +184,11 @@ export function ContestSetupScreen({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (visibleTimingError) {
+      return;
+    }
+
     onProceed();
   }
 
@@ -141,7 +215,7 @@ export function ContestSetupScreen({
             <p className="setup-hero-panel__eyebrow">Revelio</p>
             <h1 className="setup-hero-panel__title">Create Contest</h1>
             <p className="setup-hero-panel__description">
-              Configure the contest identity, UTC timing, balloon palette, and
+              Configure the contest identity, local timing, balloon palette, and
               Codeforces credentials from one polished launch surface.
             </p>
 
@@ -177,7 +251,16 @@ export function ContestSetupScreen({
             <div className="setup-summary-row">
               <span className="setup-summary-row__label">Start</span>
               <strong className="setup-summary-row__value">
-                {formatUtcSummary(configuration.startAtUtc)}
+                {formatLocalStartSummary(configuration.startAtUtc)}
+              </strong>
+            </div>
+            <div className="setup-summary-row">
+              <span className="setup-summary-row__label">End</span>
+              <strong className="setup-summary-row__value">
+                {formatLocalEndSummary(
+                  configuration.startAtUtc,
+                  configuration.durationMinutes
+                )}
               </strong>
             </div>
             <div className="setup-summary-row">
@@ -294,18 +377,17 @@ export function ContestSetupScreen({
                   <span className="setup-field__label">
                     Start date and time of the contest
                   </span>
-                  <span className="setup-field__hint">
-                    Stored in UTC to stay aligned with device time and future API
-                    timestamps.
-                  </span>
                   <div className="setup-input-wrap">
                     <input
                       className="setup-input"
                       type="datetime-local"
-                      value={configuration.startAtUtc}
-                      onChange={(event) => updateField("startAtUtc", event.target.value)}
+                      value={localStartAt}
+                      onChange={(event) =>
+                        handleStartDateTimeChange(event.target.value)
+                      }
+                      required
                     />
-                    <span className="setup-input-wrap__badge">UTC</span>
+                    <span className="setup-input-wrap__badge">{localUtcOffset}</span>
                   </div>
                 </label>
 
@@ -322,6 +404,31 @@ export function ContestSetupScreen({
                         Number.parseInt(event.target.value || "0", 10) || 1
                       )
                     }
+                    required
+                  />
+                </label>
+
+                <label className="setup-field">
+                  <span className="setup-field__label">End date and time</span>
+                  <span className="setup-field__hint">
+                    Alternative to setting contest duration.
+                  </span>
+                  <input
+                    className={`setup-input ${
+                      visibleTimingError ? "setup-input--invalid" : ""
+                    }`.trim()}
+                    type="datetime-local"
+                    value={displayedLocalEndAt}
+                    min={minimumLocalEndAt}
+                    placeholder={localEndAt}
+                    onChange={(event) =>
+                      handleEndDateTimeChange(event.target.value)
+                    }
+                    aria-describedby={
+                      visibleTimingError ? "setup-timing-error" : undefined
+                    }
+                    aria-invalid={Boolean(visibleTimingError)}
+                    required
                   />
                 </label>
 
@@ -360,6 +467,12 @@ export function ContestSetupScreen({
                     ))}
                   </select>
                 </label>
+
+                {visibleTimingError ? (
+                  <p className="setup-field__error" id="setup-timing-error">
+                    {visibleTimingError}
+                  </p>
+                ) : null}
               </div>
             </Panel>
 
@@ -414,10 +527,6 @@ export function ContestSetupScreen({
               <div className="setup-fields">
                 <label className="setup-field setup-field--full">
                   <span className="setup-field__label">API Key</span>
-                  <span className="setup-field__hint">
-                    Reserved for private mashup authentication once the backend is
-                    connected.
-                  </span>
                   <input
                     className="setup-input setup-input--token"
                     type="text"
@@ -430,10 +539,6 @@ export function ContestSetupScreen({
 
                 <label className="setup-field setup-field--full">
                   <span className="setup-field__label">API Secret</span>
-                  <span className="setup-field__hint">
-                    Kept separate so future service calls can map credentials without
-                    reshaping the form state.
-                  </span>
                   <input
                     className="setup-input setup-input--token"
                     type="password"
@@ -470,4 +575,37 @@ export function ContestSetupScreen({
       </section>
     </div>
   );
+}
+
+function normalizeDurationMinutes(durationMinutes: number): number {
+  const wholeDurationMinutes = Number.isFinite(durationMinutes)
+    ? Math.floor(durationMinutes)
+    : 1;
+
+  return Math.max(1, wholeDurationMinutes);
+}
+
+function getTimingValidationMessage(
+  configuration: ContestConfiguration
+): string | null {
+  const startDate = parseUtcDateTimeInputValue(configuration.startAtUtc);
+
+  if (!startDate) {
+    return "Choose a valid contest start date and time.";
+  }
+
+  const endDate = calculateContestEndDate(
+    configuration.startAtUtc,
+    configuration.durationMinutes
+  );
+
+  if (!endDate || !Number.isFinite(configuration.durationMinutes)) {
+    return "Contest duration must be at least 1 minute.";
+  }
+
+  if (startDate >= endDate) {
+    return "Contest start must be strictly earlier than the end date and time.";
+  }
+
+  return null;
 }

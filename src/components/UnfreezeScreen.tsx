@@ -8,6 +8,8 @@ interface UnfreezeScreenProps {
   snapshot: ContestSnapshot;
 }
 
+const REVEALING_TEAM_VIEWPORT_ANCHOR = 0.68;
+
 export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
   const revealEvents = useMemo(() => buildUnfreezeRevealEvents(snapshot), [snapshot]);
   const [revealCount, setRevealCount] = useState(0);
@@ -95,6 +97,7 @@ export function UnfreezeScreen({ snapshot }: UnfreezeScreenProps) {
         autoFollowHighlightedTeam
         fillViewport
         highlightedTeamId={unfreezeProgress.currentTeamId}
+        highlightedTeamViewportAnchor={REVEALING_TEAM_VIEWPORT_ANCHOR}
         lockUserScroll
         problems={unfreezeSnapshot.problems}
         teams={unfreezeSnapshot.teams}

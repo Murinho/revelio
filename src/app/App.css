@@ -205,17 +205,36 @@
   text-align: center;
 }
 
-.timer-panel__frozen-icon {
+.timer-panel__mode-icon {
   display: flex;
   justify-content: center;
   margin-bottom: 0.35rem;
+  color: #57f2af;
+  filter: drop-shadow(0 0 10px rgba(87, 242, 175, 0.25));
+}
+
+.timer-panel--frozen .timer-panel__mode-icon {
   color: #2fc0ff;
   filter: drop-shadow(0 0 10px rgba(47, 192, 255, 0.25));
 }
 
-.timer-panel__frozen-svg {
+.timer-panel--play .timer-panel__mode-icon {
+  color: #ffc928;
+  filter: drop-shadow(0 0 12px rgba(255, 201, 40, 0.34));
+}
+
+.timer-panel--complete .timer-panel__mode-icon {
+  color: #2fc0ff;
+  filter: drop-shadow(0 0 10px rgba(47, 192, 255, 0.25));
+}
+
+.timer-panel__mode-svg {
   width: 80px;
   height: 80px;
+}
+
+.timer-panel--play .timer-panel__play-ring {
+  display: none;
 }
 
 .timer-panel__clock {
@@ -226,6 +245,11 @@
   margin-bottom: 0.28rem;
   color: #2fc0ff;
   text-shadow: 0 0 16px rgba(47, 192, 255, 0.3);
+}
+
+.timer-panel--play .timer-panel__clock {
+  color: #ffc928;
+  text-shadow: 0 0 18px rgba(255, 201, 40, 0.38);
 }
 
 .timer-panel__freeze {
@@ -245,6 +269,21 @@
   font-size: 0.58rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.timer-panel--play .timer-panel__phase {
+  background: rgba(47, 192, 255, 0.14);
+  color: #f8b020;
+}
+
+.timer-panel--frozen .timer-panel__phase {
+  background: rgba(47, 192, 255, 0.14);
+  color: #cbefff;
+}
+
+.timer-panel--complete .timer-panel__phase {
+  background: rgba(47, 192, 255, 0.14);
+  color: #57f2af;
 }
 
 .submission-list {
@@ -699,6 +738,32 @@
   color: #ffffff;
 }
 
+.problem-cell--first-to-solve {
+  isolation: isolate;
+}
+
+.problem-cell--first-to-solve-twinkle {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(4, 12, 24, 0.2));
+  background-color: #ff2558;
+  will-change: background-color;
+  animation: first-to-solve-cell-background-twinkle 5s ease-in-out both;
+}
+
+.problem-cell--first-to-solve-twinkle::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 24% 16%, rgba(255, 255, 255, 0.36), transparent 28%),
+    radial-gradient(circle at 72% 72%, rgba(255, 255, 255, 0.2), transparent 34%),
+    linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+  pointer-events: none;
+  will-change: opacity;
+  animation: first-to-solve-cell-sheen-twinkle 5s ease-in-out both;
+}
+
 .balloon {
   position: relative;
   top: -2.5px;
@@ -809,4 +874,88 @@
   gap: 1rem;
   color: var(--text-muted);
   font-size: 0.72rem;
+}
+
+@keyframes first-to-solve-cell-background-twinkle {
+  0% {
+    background-color: #ff2558;
+  }
+
+  12% {
+    background-color: #19ef68;
+  }
+
+  24% {
+    background-color: #1f72ff;
+  }
+
+  36% {
+    background-color: #ff2558;
+  }
+
+  48% {
+    background-color: #19ef68;
+  }
+
+  60% {
+    background-color: #1f72ff;
+  }
+
+  72% {
+    background-color: #ff2558;
+  }
+
+  84% {
+    background-color: #19ef68;
+  }
+
+  96% {
+    background-color: #1f72ff;
+  }
+
+  100% {
+    background-color: #32563f;
+  }
+}
+
+@keyframes first-to-solve-cell-sheen-twinkle {
+  0% {
+    opacity: 0.28;
+  }
+
+  12% {
+    opacity: 0.48;
+  }
+
+  24% {
+    opacity: 0.34;
+  }
+
+  36% {
+    opacity: 0.5;
+  }
+
+  48% {
+    opacity: 0.34;
+  }
+
+  60% {
+    opacity: 0.5;
+  }
+
+  72% {
+    opacity: 0.32;
+  }
+
+  84% {
+    opacity: 0.24;
+  }
+
+  96% {
+    opacity: 0.16;
+  }
+
+  100% {
+    opacity: 0;
+  }
 }

@@ -17,13 +17,14 @@ import {
 import {
   cloneContestConfiguration,
   createDefaultContestConfiguration,
-  formatUtcSummary
+  formatLocalStartSummary
 } from "../domain/contestConfiguration";
 import {
   createManagedContest,
   createMockManagedContests,
   ManagedContest
 } from "../domain/managedContest";
+import { useContestClock } from "../hooks/useContestClock";
 import { useContestSnapshot } from "../hooks/useContestSnapshot";
 import "./App.css";
 
@@ -48,7 +49,15 @@ export function App() {
       : route.screen === "unfreeze"
         ? targetContest?.configuration ?? null
         : null;
-  const { snapshot, loading, error } = useContestSnapshot(activeConfiguration);
+  const contestClock = useContestClock(activeConfiguration);
+  const { snapshot, loading, error } = useContestSnapshot(activeConfiguration, {
+    elapsedSeconds: contestClock.elapsedSeconds,
+    live: route.screen === "scoreboard"
+  });
+  const firstToSolveTwinkleMinute = getFirstToSolveTwinkleMinute(
+    contestClock.elapsedSeconds,
+    contestClock.phase
+  );
   const shareableScoreboardPath = useMemo(() => {
     const contestId = resolveContestId({
       contestUrl: configuration.contestUrl,
@@ -333,15 +342,16 @@ export function App() {
               {snapshot.problems.length} problems
             </span>
             <span className="scoreboard-toolbar__chip">
-              {formatUtcSummary(configuration.startAtUtc)}
+              {formatLocalStartSummary(configuration.startAtUtc)}
             </span>
           </div>
         </header>
 
         <div className="app__layout">
           <aside className="app__sidebar">
-            <TimerPanel snapshot={snapshot} />
+            <TimerPanel clock={contestClock} snapshot={snapshot} />
             <RecentSubmissionsPanel
+              problems={snapshot.problems}
               submissions={snapshot.recentSubmissions}
               teams={snapshot.teams}
             />
@@ -355,6 +365,7 @@ export function App() {
             </header>
 
             <ScoreboardTable
+              firstToSolveTwinkleMinute={firstToSolveTwinkleMinute}
               problems={snapshot.problems}
               teams={snapshot.teams}
             />
@@ -368,4 +379,23 @@ export function App() {
       </div>
     </main>
   );
+}
+
+function getFirstToSolveTwinkleMinute(
+  elapsedSeconds: number,
+  phase: ReturnType<typeof useContestClock>["phase"]
+): number | null {
+  const isContestRunning = phase === "play" || phase === "frozen";
+
+  if (!isContestRunning || elapsedSeconds < 60) {
+    return null;
+  }
+
+  const secondsSinceFullMinute = elapsedSeconds % 60;
+
+  if (secondsSinceFullMinute >= 5) {
+    return null;
+  }
+
+  return Math.floor(elapsedSeconds / 60);
 }

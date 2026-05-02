@@ -2,6 +2,7 @@ import {
   cloneContestConfiguration,
   ContestConfiguration,
   createDefaultContestConfiguration,
+  parseUtcDateTimeInputValue,
   resizeContestProblems
 } from "./contestConfiguration";
 
@@ -42,7 +43,7 @@ export function getContestTimelineBucket(
   contest: ManagedContest,
   now = new Date()
 ): ContestTimelineBucket {
-  const startAt = parseUtcInput(contest.configuration.startAtUtc);
+  const startAt = parseUtcDateTimeInputValue(contest.configuration.startAtUtc);
 
   if (!startAt) {
     return "future";
@@ -72,7 +73,7 @@ function createMockConfiguration(options: {
   problemCount: number;
 }): ContestConfiguration {
   const baseConfiguration = createDefaultContestConfiguration(
-    parseUtcInput(options.startAtUtc) ?? new Date()
+    parseUtcDateTimeInputValue(options.startAtUtc) ?? new Date()
   );
 
   return {
@@ -84,14 +85,4 @@ function createMockConfiguration(options: {
     contestUrl: options.contestUrl,
     problems: resizeContestProblems(baseConfiguration.problems, options.problemCount)
   };
-}
-
-function parseUtcInput(value: string): Date | null {
-  if (!value) {
-    return null;
-  }
-
-  const parsedDate = new Date(`${value}:00Z`);
-
-  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
 }
