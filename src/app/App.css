@@ -486,7 +486,7 @@
 .scoreboard-table {
   --cell-gap: 3px;
   --rank-width: 54px;
-  --team-width: 250px;
+  --team-width: 570px;
   --score-width: 68px;
   border-collapse: separate;
   border-spacing: var(--cell-gap);
@@ -623,8 +623,10 @@
 
 .team-cell {
   display: grid;
+  width: var(--team-width);
   gap: 0.35rem;
   padding: 0.22rem 0.56rem;
+  overflow-wrap: anywhere;
   text-align: center;
 }
 

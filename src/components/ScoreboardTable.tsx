@@ -233,6 +233,11 @@ export function ScoreboardTable({
     return team.organization ? `[${team.organization}] ${team.name}` : team.name;
   }
 
+  function truncateTeamLabel(label: string) {
+    const characters = Array.from(label);
+    return characters.length > 50 ? `${characters.slice(0, 47).join("")}...` : label;
+  }
+
   function getTeamMetaLabel(team: TeamStanding) {
     if (team.members && team.members.length > 0) {
       return team.members.join(" / ");
@@ -292,7 +297,9 @@ export function ScoreboardTable({
                 </td>
                 <td className="scoreboard-table__cell scoreboard-table__cell--team">
                   <div className="team-cell">
-                    <strong className="team-cell__name">{getTeamPrimaryLabel(team)}</strong>
+                    <strong className="team-cell__name" title={getTeamPrimaryLabel(team)}>
+                      {truncateTeamLabel(getTeamPrimaryLabel(team))}
+                    </strong>
                     {getTeamMetaLabel(team) ? (
                       <span className="team-cell__meta">{getTeamMetaLabel(team)}</span>
                     ) : null}
