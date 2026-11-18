@@ -207,7 +207,8 @@ function subscribeToLiveCodeforcesSnapshot({
         tracker,
         latestSubmissions,
         pollElapsedSeconds,
-        configuration.includedParticipantTypes
+        configuration.includedParticipantTypes,
+        Math.max(1, Math.floor(configuration.durationMinutes * 60))
       );
       rebuildSnapshot();
     } catch (loadError) {
@@ -256,11 +257,14 @@ function updateLiveSubmissionTracker(
   tracker: LiveSubmissionTracker,
   submissions: CodeforcesSubmission[],
   elapsedSeconds: number,
-  includedParticipantTypes: readonly ScoreboardParticipantType[]
+  includedParticipantTypes: readonly ScoreboardParticipantType[],
+  durationSeconds: number
 ) {
   submissions
     .filter((submission) =>
-      isCodeforcesSubmissionEligible(submission, elapsedSeconds, includedParticipantTypes)
+      isCodeforcesSubmissionEligible(
+        submission, elapsedSeconds, includedParticipantTypes, durationSeconds
+      )
     )
     .sort(compareSubmissionsChronologically)
     .forEach((submission) => {
