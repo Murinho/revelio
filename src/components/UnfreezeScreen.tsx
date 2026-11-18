@@ -12,7 +12,9 @@ interface UnfreezeScreenProps {
 const REVEALING_TEAM_VIEWPORT_ANCHOR = 0.68;
 
 export function UnfreezeScreen({ snapshot, onMainMenu }: UnfreezeScreenProps) {
-  const exitDialogRef = useRef<HTMLDialogElement>(null);
+  const confirmationDialogRef = useRef<HTMLDialogElement>(null);
+  const [confirmationAction, setConfirmationAction] = useState<"exit" | "reset">("exit");
+  const isResetConfirmation = confirmationAction === "reset";
   const revealEvents = useMemo(() => buildUnfreezeRevealEvents(snapshot), [snapshot]);
   const [revealCount, setRevealCount] = useState(0);
   const unfreezeProgress = useMemo(
@@ -27,7 +29,7 @@ export function UnfreezeScreen({ snapshot, onMainMenu }: UnfreezeScreenProps) {
     function handleKeyDown(event: KeyboardEvent) {
       if (
         event.defaultPrevented ||
-        exitDialogRef.current?.open ||
+        confirmationDialogRef.current?.open ||
         event.altKey ||
         event.ctrlKey ||
         event.metaKey ||
@@ -88,7 +90,10 @@ export function UnfreezeScreen({ snapshot, onMainMenu }: UnfreezeScreenProps) {
           <button
             className="secondary-button"
             type="button"
-            onClick={() => setRevealCount(0)}
+            onClick={() => {
+              setConfirmationAction("reset");
+              confirmationDialogRef.current?.showModal();
+            }}
             disabled={revealCount === 0}
           >
             Reset Unfreeze
@@ -96,7 +101,10 @@ export function UnfreezeScreen({ snapshot, onMainMenu }: UnfreezeScreenProps) {
           <button
             className="secondary-button"
             type="button"
-            onClick={() => exitDialogRef.current?.showModal()}
+            onClick={() => {
+              setConfirmationAction("exit");
+              confirmationDialogRef.current?.showModal();
+            }}
           >
             Back to Main Menu
           </button>
@@ -115,28 +123,36 @@ export function UnfreezeScreen({ snapshot, onMainMenu }: UnfreezeScreenProps) {
       />
 
       <dialog
-        className="panel unfreeze-exit-dialog"
-        ref={exitDialogRef}
-        aria-labelledby="unfreeze-exit-title"
-        aria-describedby="unfreeze-exit-description"
+        className="panel unfreeze-confirmation-dialog"
+        ref={confirmationDialogRef}
+        aria-labelledby="unfreeze-confirmation-title"
+        aria-describedby="unfreeze-confirmation-description"
       >
-        <h2 id="unfreeze-exit-title" className="unfreeze-exit-dialog__title">
-          Go back to the main menu?
+        <h2 id="unfreeze-confirmation-title" className="unfreeze-confirmation-dialog__title">
+          {isResetConfirmation ? "Reset unfreeze?" : "Go back to the main menu?"}
         </h2>
-        <p id="unfreeze-exit-description" className="unfreeze-exit-dialog__description">
-          All revelator progress will be lost. When you return, you’ll start
-          again from the bottom of the scoreboard.
+        <p id="unfreeze-confirmation-description" className="unfreeze-confirmation-dialog__description">
+          {isResetConfirmation
+            ? "All revelator progress will be lost. You’ll start again from the bottom of the scoreboard."
+            : "All revelator progress will be lost. When you return, you’ll start again from the bottom of the scoreboard."}
         </p>
-        <form method="dialog" className="unfreeze-exit-dialog__actions">
+        <form method="dialog" className="unfreeze-confirmation-dialog__actions">
           <button className="secondary-button" type="submit" autoFocus>
             Cancel
           </button>
           <button
             className="setup-submit-panel__button"
             type="button"
-            onClick={onMainMenu}
+            onClick={() => {
+              if (isResetConfirmation) {
+                setRevealCount(0);
+                confirmationDialogRef.current?.close();
+              } else {
+                onMainMenu();
+              }
+            }}
           >
-            Go to Main Menu
+            {isResetConfirmation ? "Reset Unfreeze" : "Go to Main Menu"}
           </button>
         </form>
       </dialog>
