@@ -141,7 +141,7 @@ export function UnfreezeScreen({ snapshot, onMainMenu }: UnfreezeScreenProps) {
             Cancel
           </button>
           <button
-            className="setup-submit-panel__button"
+            className="primary-button"
             type="button"
             onClick={() => {
               if (isResetConfirmation) {

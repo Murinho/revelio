@@ -82,7 +82,7 @@
   gap: 0.75rem;
 }
 
-.unfreeze-confirmation-dialog__actions .setup-submit-panel__button {
+.unfreeze-confirmation-dialog__actions .primary-button {
   min-width: 0;
 }
 
