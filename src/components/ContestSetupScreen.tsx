@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import {
-  calculateContestEndDate,
   ContestConfiguration,
   CODEFORCES_SCOREBOARD_PARTICIPANT_TYPES,
   MAX_PROBLEM_COUNT,
@@ -9,11 +8,11 @@ import {
   formatFreezeWindowLabel,
   formatLocalStartSummary,
   formatLocalUtcOffset,
-  parseUtcDateTimeInputValue,
   resizeContestProblems,
   toLocalStartDateTimeInputValue,
   toUtcStartDateTimeInputValue
 } from "../domain/contestConfiguration";
+import { validateContestSettings } from "../domain/contestSettingsValidation";
 import { Panel } from "./Panel";
 import "./ContestSetupScreen.css";
 
@@ -41,6 +40,9 @@ export function ContestSetupScreen({
 }: ContestSetupScreenProps) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [duration, setDuration] = useState(String(configuration.durationMinutes));
+  const [freeze, setFreeze] = useState(String(configuration.freezeDurationMinutes));
+  const [hasSubmitted, setHasSubmitted] = useState(false);
   const savedDialogRef = useRef<HTMLDialogElement>(null);
   const problemCount = configuration.problems.length;
   const hasCredentials =
@@ -49,7 +51,24 @@ export function ContestSetupScreen({
   const shareableScoreboardUrl = `${window.location.origin}${shareableScoreboardPath}`;
   const localStartAt = toLocalStartDateTimeInputValue(configuration.startAtUtc);
   const localUtcOffset = formatLocalUtcOffset(configuration.startAtUtc);
-  const visibleTimingError = getTimingValidationMessage(configuration);
+  const errors = hasSubmitted
+    ? validateContestSettings(configuration, duration, freeze)
+    : {};
+
+  function fieldError(field: keyof ReturnType<typeof validateContestSettings>) {
+    return errors[field] ? (
+      <span className="setup-field__error" id={`setup-${field}-error`} role="alert">
+        {errors[field]}
+      </span>
+    ) : null;
+  }
+
+  function fieldValidation(field: keyof ReturnType<typeof validateContestSettings>) {
+    return {
+      "aria-invalid": Boolean(errors[field]),
+      "aria-describedby": errors[field] ? `setup-${field}-error` : undefined
+    };
+  }
 
   function updateField<K extends keyof ContestConfiguration>(
     field: K,
@@ -72,18 +91,21 @@ export function ContestSetupScreen({
     updateField("startAtUtc", toUtcStartDateTimeInputValue(nextLocalStartAt));
   }
 
-  function handleDurationChange(nextDurationMinutes: number) {
-    const safeDurationMinutes = normalizeDurationMinutes(nextDurationMinutes);
+  function handleMinutesChange(field: "durationMinutes" | "freezeDurationMinutes", value: string) {
+    if (!/^\d*$/.test(value)) {
+      return;
+    }
 
+    if (field === "durationMinutes") {
+      setDuration(value);
+    } else {
+      setFreeze(value);
+    }
 
-    onChange({
-      ...configuration,
-      durationMinutes: safeDurationMinutes,
-      freezeDurationMinutes: Math.min(
-        configuration.freezeDurationMinutes,
-        safeDurationMinutes
-      )
-    });
+    // Keep empty drafts in the input without replacing them with a default.
+    if (value !== "" && Number.isSafeInteger(Number(value))) {
+      updateField(field, Number(value));
+    }
   }
 
   function handleProblemColorChange(index: number, balloonColor: string) {
@@ -123,11 +145,16 @@ export function ContestSetupScreen({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (visibleTimingError) {
+    setHasSubmitted(true);
+    setSaveError(null);
+    const validationErrors = validateContestSettings(configuration, duration, freeze);
+    if (Object.keys(validationErrors).length > 0) {
+      const form = event.currentTarget;
+      window.requestAnimationFrame(() => {
+        form.querySelector<HTMLElement>("[aria-invalid='true']")?.focus();
+      });
       return;
     }
-
-    setSaveError(null);
 
     try {
       onSave();
@@ -286,37 +313,47 @@ export function ContestSetupScreen({
             Back to Main Menu
           </button>
           <button className="setup-primary-button" type="submit" form="contest-settings">
-            Save Settings
+            Save
           </button>
         </div>
 
         {saveError ? <p className="setup-field__error" role="alert">{saveError}</p> : null}
 
-        <form id="contest-settings" className="setup-form" onSubmit={handleSubmit}>
+        <form id="contest-settings" className="setup-form" onSubmit={handleSubmit} noValidate>
           <div className="setup-form__grid">
             <Panel title="Contest Profile" eyebrow="Identity" className="setup-panel">
               <div className="setup-fields">
                 <label className="setup-field setup-field--full">
-                  <span className="setup-field__label">Name of the contest</span>
+                  <span className="setup-field__label">
+                    Name of the contest <span className="setup-field__required" aria-hidden="true">*</span>
+                  </span>
                   <input
                     className="setup-input"
                     type="text"
+                    required
+                    {...fieldValidation("contestName")}
                     value={configuration.contestName}
                     onChange={(event) => updateField("contestName", event.target.value)}
                     placeholder="Revelio Invitational"
                   />
+                  {fieldError("contestName")}
                 </label>
 
                 <label className="setup-field setup-field--full">
-                  <span className="setup-field__label">URL of the contest</span>
+                  <span className="setup-field__label">
+                    URL of the contest <span className="setup-field__required" aria-hidden="true">*</span>
+                  </span>
                   <input
                     className="setup-input"
                     type="url"
+                    required
+                    {...fieldValidation("contestUrl")}
                     value={configuration.contestUrl}
                     onChange={(event) => updateField("contestUrl", event.target.value)}
                     placeholder="https://codeforces.com/gym/106416"
                     autoComplete="off"
                   />
+                  {fieldError("contestUrl")}
                 </label>
 
                 <label className="setup-field setup-field--full">
@@ -349,6 +386,7 @@ export function ContestSetupScreen({
                     <input
                       className="setup-input"
                       type="datetime-local"
+                      {...fieldValidation("start")}
                       value={localStartAt}
                       onChange={(event) =>
                         handleStartDateTimeChange(event.target.value)
@@ -357,6 +395,7 @@ export function ContestSetupScreen({
                     />
                     <span className="setup-input-wrap__badge">{localUtcOffset}</span>
                   </div>
+                  {fieldError("start")}
                 </label>
 
                 <label className="setup-field">
@@ -364,16 +403,15 @@ export function ContestSetupScreen({
                   <span className="setup-field__hint">Contest duration in minutes.</span>
                   <input
                     className="setup-input"
-                    type="number"
-                    min={1}
-                    value={configuration.durationMinutes}
-                    onChange={(event) =>
-                      handleDurationChange(
-                        Number.parseInt(event.target.value || "0", 10) || 1
-                      )
-                    }
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]+"
+                    {...fieldValidation("duration")}
+                    value={duration}
+                    onChange={(event) => handleMinutesChange("durationMinutes", event.target.value)}
                     required
                   />
+                  {fieldError("duration")}
                 </label>
 
                 <label className="setup-field">
@@ -381,24 +419,16 @@ export function ContestSetupScreen({
                   <span className="setup-field__hint">Minutes hidden at the end.</span>
                   <input
                     className="setup-input"
-                    type="number"
-                    min={0}
-                    max={configuration.durationMinutes}
-                    value={configuration.freezeDurationMinutes}
-                    onChange={(event) =>
-                      updateField(
-                        "freezeDurationMinutes",
-                        Math.max(0, Number.parseInt(event.target.value || "0", 10) || 0)
-                      )
-                    }
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]+"
+                    {...fieldValidation("freeze")}
+                    value={freeze}
+                    onChange={(event) => handleMinutesChange("freezeDurationMinutes", event.target.value)}
+                    required
                   />
+                  {fieldError("freeze")}
                 </label>
-
-                {visibleTimingError ? (
-                  <p className="setup-field__error" id="setup-timing-error">
-                    {visibleTimingError}
-                  </p>
-                ) : null}
               </div>
             </Panel>
 
@@ -484,14 +514,17 @@ export function ContestSetupScreen({
               <fieldset className="setup-participants">
                 <legend className="setup-field__label">Included in both scoreboards</legend>
                 <p className="setup-field__hint" id="setup-participants-hint">
-                  Choose who appears in the live scoreboard and revelator.
+                  Choose at least one type to appear in the live scoreboard and revelator.
                 </p>
                 {CODEFORCES_SCOREBOARD_PARTICIPANT_TYPES.map((participantType) => (
                   <label className="setup-participants__option" key={participantType}>
                     <input
                       type="checkbox"
                       checked={configuration.includedParticipantTypes.includes(participantType)}
-                      aria-describedby="setup-participants-hint"
+                      aria-invalid={Boolean(errors.participants)}
+                      aria-describedby={errors.participants
+                        ? "setup-participants-hint setup-participants-error"
+                        : "setup-participants-hint"}
                       onChange={(event) =>
                         updateField(
                           "includedParticipantTypes",
@@ -506,11 +539,7 @@ export function ContestSetupScreen({
                     <span>{participantType}</span>
                   </label>
                 ))}
-                {configuration.includedParticipantTypes.length === 0 ? (
-                  <p className="setup-field__hint" role="status">
-                    No types selected. Both scoreboards will be empty.
-                  </p>
-                ) : null}
+                {fieldError("participants")}
               </fieldset>
             </Panel>
           </div>
@@ -548,37 +577,4 @@ export function ContestSetupScreen({
       </dialog>
     </div>
   );
-}
-
-function normalizeDurationMinutes(durationMinutes: number): number {
-  const wholeDurationMinutes = Number.isFinite(durationMinutes)
-    ? Math.floor(durationMinutes)
-    : 1;
-
-  return Math.max(1, wholeDurationMinutes);
-}
-
-function getTimingValidationMessage(
-  configuration: ContestConfiguration
-): string | null {
-  const startDate = parseUtcDateTimeInputValue(configuration.startAtUtc);
-
-  if (!startDate) {
-    return "Choose a valid contest start date and time.";
-  }
-
-  const endDate = calculateContestEndDate(
-    configuration.startAtUtc,
-    configuration.durationMinutes
-  );
-
-  if (!endDate || !Number.isFinite(configuration.durationMinutes)) {
-    return "Contest duration must be at least 1 minute.";
-  }
-
-  if (startDate >= endDate) {
-    return "Contest start must be strictly earlier than the end date and time.";
-  }
-
-  return null;
 }

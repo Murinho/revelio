@@ -57,7 +57,7 @@ const DEFAULT_BALLOON_COLORS = [
 
 export function createDefaultContestConfiguration(now = new Date()): ContestConfiguration {
   return {
-    contestName: "Latin America Championship",
+    contestName: "",
     startAtUtc: toUtcDateTimeInputValue(now),
     durationMinutes: 300,
     freezeDurationMinutes: 60,

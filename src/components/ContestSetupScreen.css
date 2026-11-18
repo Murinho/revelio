@@ -323,6 +323,10 @@
   text-transform: uppercase;
 }
 
+.setup-field__required {
+  color: #ff6b6b;
+}
+
 .setup-field__hint {
   color: var(--text-muted);
   font-size: 0.8rem;
@@ -400,7 +404,9 @@
 }
 
 .setup-input--invalid,
-.setup-input--invalid:focus {
+.setup-input--invalid:focus,
+.setup-input[aria-invalid="true"],
+.setup-input[aria-invalid="true"]:focus {
   border-color: rgba(255, 107, 107, 0.72);
   box-shadow:
     0 0 0 3px rgba(255, 107, 107, 0.12),
