@@ -15,6 +15,7 @@ import {
 import { validateContestSettings } from "../domain/contestSettingsValidation";
 import { Panel } from "./Panel";
 import "./ContestSetupScreen.css";
+import "./ConfirmationDialog.css";
 
 interface ContestSetupScreenProps {
   configuration: ContestConfiguration;
@@ -44,6 +45,7 @@ export function ContestSetupScreen({
   const [freeze, setFreeze] = useState(String(configuration.freezeDurationMinutes));
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const savedDialogRef = useRef<HTMLDialogElement>(null);
+  const exitDialogRef = useRef<HTMLDialogElement>(null);
   const problemCount = configuration.problems.length;
   const hasCredentials =
     configuration.codeforces.apiKey.trim().length > 0 &&
@@ -309,7 +311,11 @@ export function ContestSetupScreen({
 
       <section className="setup-main">
         <div className="setup-header__actions">
-          <button className="secondary-button" type="button" onClick={onBack}>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => exitDialogRef.current?.showModal()}
+          >
             Back to Main Menu
           </button>
           <button className="setup-primary-button" type="submit" form="contest-settings">
@@ -546,6 +552,28 @@ export function ContestSetupScreen({
 
         </form>
       </section>
+
+      <dialog
+        className="panel unfreeze-confirmation-dialog"
+        ref={exitDialogRef}
+        aria-labelledby="setup-exit-title"
+        aria-describedby="setup-exit-description"
+      >
+        <h2 id="setup-exit-title" className="unfreeze-confirmation-dialog__title">
+          Go back to the main menu?
+        </h2>
+        <p id="setup-exit-description" className="unfreeze-confirmation-dialog__description">
+          Any unsaved changes to your contest settings will be lost.
+        </p>
+        <form method="dialog" className="unfreeze-confirmation-dialog__actions">
+          <button className="secondary-button" type="submit" autoFocus>
+            Keep Editing
+          </button>
+          <button className="primary-button" type="button" onClick={onBack}>
+            Go to Main Menu
+          </button>
+        </form>
+      </dialog>
 
       <dialog
         ref={savedDialogRef}

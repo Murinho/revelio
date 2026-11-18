@@ -3,6 +3,7 @@ import { ScoreboardTable } from "./ScoreboardTable";
 import { ContestSnapshot } from "../domain/types";
 import { applyUnfreezeProgress, buildUnfreezeRevealEvents } from "../domain/unfreezeSimulation";
 import "./UnfreezeScreen.css";
+import "./ConfirmationDialog.css";
 
 interface UnfreezeScreenProps {
   snapshot: ContestSnapshot;
