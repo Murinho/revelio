@@ -470,25 +470,79 @@
   border-radius: 12px;
 }
 
-.setup-submit-panel {
+.setup-primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0.75rem 1.1rem;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #0bb6ff, #57f2af);
+  color: #04131d;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(8, 27, 45, 0.34);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.setup-primary-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 36px rgba(8, 27, 45, 0.42);
+}
+
+.setup-primary-button:active {
+  transform: translateY(0);
+}
+
+.setup-primary-button:focus-visible,
+.setup-saved-dialog button:focus-visible {
+  outline: 2px solid #57f2af;
+  outline-offset: 4px;
+}
+
+.setup-saved-dialog {
+  width: min(620px, calc(100% - 2rem));
+  max-height: calc(100dvh - 2rem);
+  padding: 2rem;
+  overflow-y: auto;
+  border: 1px solid rgba(104, 154, 214, 0.28);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top left, rgba(47, 192, 255, 0.12), transparent 55%),
+    linear-gradient(180deg, #101d2f, #09131f);
+  color: var(--text-strong);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.5);
+}
+
+.setup-saved-dialog::backdrop {
+  background: rgba(3, 9, 16, 0.76);
+  backdrop-filter: blur(6px);
+}
+
+body:has(.setup-saved-dialog[open]) {
   overflow: hidden;
 }
 
-.setup-submit-panel__content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.05rem 1.18rem;
-}
-
-.setup-submit-panel__copy {
+.setup-saved-dialog__icon {
   display: grid;
-  gap: 0.35rem;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 1.25rem;
+  border: 1px solid rgba(87, 242, 175, 0.3);
+  border-radius: 16px;
+  background: rgba(87, 242, 175, 0.1);
+  color: #57f2af;
 }
 
-.setup-submit-panel__eyebrow {
-  margin: 0;
+.setup-saved-dialog__icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.setup-saved-dialog__eyebrow {
+  margin: 0 0 0.4rem;
   color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 800;
@@ -496,47 +550,31 @@
   text-transform: uppercase;
 }
 
-.setup-submit-panel__title {
+.setup-saved-dialog h2 {
   margin: 0;
-  color: var(--text-strong);
-  font-size: 1.55rem;
+  font-size: clamp(1.8rem, 5vw, 2.2rem);
+  line-height: 1.15;
 }
 
-.setup-submit-panel__description {
-  margin: 0;
-  max-width: 62ch;
+.setup-saved-dialog__description {
+  margin: 0.85rem 0 1.75rem;
   color: var(--text-soft);
-  font-size: 0.92rem;
-  line-height: 1.55;
-}
-
-.setup-submit-panel__button {
-  min-width: 250px;
-  min-height: 58px;
-  padding: 0.9rem 1.3rem;
-  border: none;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #0bb6ff, #57f2af);
-  color: #04131d;
   font-size: 0.95rem;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  cursor: pointer;
-  box-shadow: 0 18px 36px rgba(8, 27, 45, 0.34);
-  transition:
-    transform 180ms ease,
-    box-shadow 180ms ease,
-    filter 180ms ease;
+  line-height: 1.65;
 }
 
-.setup-submit-panel__button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 22px 44px rgba(8, 27, 45, 0.42);
+.setup-saved-dialog__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
 }
 
-.setup-submit-panel__button:active {
-  transform: translateY(0);
+.setup-saved-dialog__actions button {
+  width: 100%;
+}
+
+.setup-saved-dialog__actions button:last-child {
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 1240px) {
@@ -551,8 +589,7 @@
 }
 
 @media (max-width: 920px) {
-  .setup-header,
-  .setup-submit-panel__content {
+  .setup-header {
     flex-direction: column;
     align-items: stretch;
   }
@@ -577,13 +614,21 @@
     align-items: stretch;
   }
 
-  .setup-submit-panel__button {
-    width: 100%;
-    min-width: 0;
-  }
 }
 
 @media (max-width: 640px) {
+  .setup-saved-dialog {
+    padding: 1.5rem;
+  }
+
+  .setup-saved-dialog__actions {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-header__actions > button {
+    flex: 1 1 auto;
+  }
+
   .setup-layout {
     padding: 0.85rem;
   }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import {
   calculateContestEndDate,
@@ -19,10 +19,9 @@ import "./ContestSetupScreen.css";
 interface ContestSetupScreenProps {
   configuration: ContestConfiguration;
   shareableScoreboardPath: string;
-  isScoreboardLoading: boolean;
-  scoreboardError: string | null;
   onChange: (nextConfiguration: ContestConfiguration) => void;
   onBack: () => void;
+  onSave: () => void;
   onProceed: () => void;
 }
 
@@ -34,31 +33,22 @@ const problemCountOptions = Array.from(
 export function ContestSetupScreen({
   configuration,
   shareableScoreboardPath,
-  isScoreboardLoading,
-  scoreboardError,
   onChange,
   onBack,
+  onSave,
   onProceed
 }: ContestSetupScreenProps) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const savedDialogRef = useRef<HTMLDialogElement>(null);
   const problemCount = configuration.problems.length;
   const hasCredentials =
     configuration.codeforces.apiKey.trim().length > 0 &&
     configuration.codeforces.apiSecret.trim().length > 0;
-  const hasContestUrl = configuration.contestUrl.trim().length > 0;
   const shareableScoreboardUrl = `${window.location.origin}${shareableScoreboardPath}`;
   const localStartAt = toLocalStartDateTimeInputValue(configuration.startAtUtc);
   const localUtcOffset = formatLocalUtcOffset(configuration.startAtUtc);
   const visibleTimingError = getTimingValidationMessage(configuration);
-  const scoreboardStatus = scoreboardError
-    ? "The contest feed could not be loaded from Codeforces. Double-check the URL or fall back to the mock preview for layout work."
-    : isScoreboardLoading
-      ? "The scoreboard is loading live Codeforces standings and submissions. You can keep adjusting the setup while it finishes."
-      : hasContestUrl
-        ? hasCredentials
-          ? "The scoreboard will use signed Codeforces contest data behind this URL and apply your freeze window and balloon colors."
-          : "Enter Codeforces API credentials to load the live standings and submissions behind this URL."
-        : "The scoreboard preview is ready with mock data and will reflect your contest title, timing, problem count, and balloon palette.";
 
   function updateField<K extends keyof ContestConfiguration>(
     field: K,
@@ -136,7 +126,14 @@ export function ContestSetupScreen({
       return;
     }
 
-    onProceed();
+    setSaveError(null);
+
+    try {
+      onSave();
+      savedDialogRef.current?.showModal();
+    } catch {
+      setSaveError("Your settings could not be saved. Please try again.");
+    }
   }
 
   async function handleCopyScoreboardUrl() {
@@ -287,9 +284,14 @@ export function ContestSetupScreen({
           <button className="secondary-button" type="button" onClick={onBack}>
             Back to Main Menu
           </button>
+          <button className="setup-primary-button" type="submit" form="contest-settings">
+            Save Settings
+          </button>
         </div>
 
-        <form className="setup-form" onSubmit={handleSubmit}>
+        {saveError ? <p className="setup-field__error" role="alert">{saveError}</p> : null}
+
+        <form id="contest-settings" className="setup-form" onSubmit={handleSubmit}>
           <div className="setup-form__grid">
             <Panel title="Contest Profile" eyebrow="Identity" className="setup-panel">
               <div className="setup-fields">
@@ -475,27 +477,37 @@ export function ContestSetupScreen({
             </Panel>
           </div>
 
-          <section className="panel setup-submit-panel">
-            <div className="setup-submit-panel__content">
-              <div className="setup-submit-panel__copy">
-                <p className="setup-submit-panel__eyebrow">Next Step</p>
-                <h3 className="setup-submit-panel__title">
-                  Proceed to the scoreboard window
-                </h3>
-                <p className="setup-submit-panel__description">
-                  {scoreboardStatus}
-                </p>
-              </div>
-
-              <button className="setup-submit-panel__button" type="submit">
-                {isScoreboardLoading
-                  ? "Open Scoreboard When Ready"
-                  : "Proceed to Scoreboard"}
-              </button>
-            </div>
-          </section>
         </form>
       </section>
+
+      <dialog
+        ref={savedDialogRef}
+        className="setup-saved-dialog"
+        aria-labelledby="settings-saved-title"
+        aria-describedby="settings-saved-description"
+      >
+        <div className="setup-saved-dialog__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m6 12 4 4 8-8" />
+          </svg>
+        </div>
+        <p className="setup-saved-dialog__eyebrow">Contest ready</p>
+        <h2 id="settings-saved-title">Settings Saved</h2>
+        <p id="settings-saved-description" className="setup-saved-dialog__description">
+          Your contest settings are saved. Open the scoreboard, return to the main menu, or keep fine-tuning.
+        </p>
+        <div className="setup-saved-dialog__actions">
+          <button className="secondary-button" type="button" onClick={onBack}>
+            Go Back to Main Menu
+          </button>
+          <button className="setup-primary-button" type="button" onClick={onProceed}>
+            Proceed to Scoreboard
+          </button>
+          <button className="secondary-button" type="button" autoFocus onClick={() => savedDialogRef.current?.close()}>
+            Keep Editing
+          </button>
+        </div>
+      </dialog>
     </div>
   );
 }

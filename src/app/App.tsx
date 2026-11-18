@@ -139,7 +139,7 @@ export function App() {
     }
   }
 
-  function handleProceedToScoreboard() {
+  function handleSaveContest() {
     const contestId = resolveContestId({
       contestUrl: configuration.contestUrl,
       contestName: configuration.contestName,
@@ -156,7 +156,6 @@ export function App() {
       )
     ]);
     setEditingContestId(contestId);
-    navigate(buildScoreboardPath(contestId));
   }
 
   if (route.screen === "not-found") {
@@ -272,11 +271,10 @@ export function App() {
         <ContestSetupScreen
           configuration={configuration}
           shareableScoreboardPath={shareableScoreboardPath}
-          isScoreboardLoading={Boolean(configuration.contestUrl.trim()) && loading}
-          scoreboardError={error}
           onChange={setConfiguration}
           onBack={() => navigate(HOME_PATH)}
-          onProceed={handleProceedToScoreboard}
+          onSave={handleSaveContest}
+          onProceed={() => navigate(shareableScoreboardPath)}
         />
       </main>
     );
