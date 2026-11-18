@@ -16,7 +16,8 @@ for (const source of [
   "domain/unfreezeSimulation",
   "domain/standings",
   "services/codeforcesApi",
-  "services/codeforcesContestGateway"
+  "services/codeforcesContestGateway",
+  "services/liveSubmissionTracker"
 ]) {
   const destination = join(output, `${source}.js`);
   mkdirSync(dirname(destination), { recursive: true });
@@ -32,6 +33,8 @@ const { createManagedContest } = require(join(output, "domain/managedContest.js"
 const { buildCodeforcesContestSnapshot, isCodeforcesSubmissionEligible } =
   require(join(output, "services/codeforcesContestGateway.js"));
 const { buildUnfreezeRevealEvents, applyUnfreezeProgress } = require(join(output, "domain/unfreezeSimulation.js"));
+const { createLiveSubmissionTracker, updateLiveSubmissionTracker, revealReadyLiveSubmissions } =
+  require(join(output, "services/liveSubmissionTracker.js"));
 
 const selectableTypes = ["CONTESTANT", "OUT_OF_COMPETITION", "VIRTUAL"];
 const allTypes = [...selectableTypes, "PRACTICE", "MANAGER"];
@@ -292,4 +295,127 @@ test("pre-freeze and revealed solves retain the same ranking and first-to-solve 
   assert.deepEqual(live.teams.map((team) => [team.name, team.rank]), [
     ["ZuluEarlier", 1], ["AlphaLater", 2]
   ]);
+});
+
+// Exercise the live delay with a deterministic clock and random source, then
+// build the real snapshots used by both the queue and the scoreboard.
+function track(tracker, entries, now, random = () => 0) {
+  updateLiveSubmissionTracker(tracker, entries, 600, ["CONTESTANT"], 600, now, random);
+}
+function trackedSnapshot(tracker, entries, elapsedSeconds = 299, freeze = false) {
+  return buildCodeforcesContestSnapshot(configuration(["CONTESTANT"]), 123, entries, {
+    elapsedSeconds,
+    pendingSubmissionIds: tracker.pendingSubmissionIds,
+    revealedSubmissionIds: tracker.revealedSubmissionIds,
+    freezeHiddenSubmissions: freeze
+  });
+}
+
+for (const verdict of ["OK", "WRONG_ANSWER", "COMPILATION_ERROR"]) {
+  for (const [random, delay] of [[0, 3000], [0.5, 6500], [0.999999, 10000]]) {
+    test(`incoming ${verdict} stays pending for ${delay}ms in both views`, () => {
+      const tracker = createLiveSubmissionTracker();
+      track(tracker, [], 0);
+      const entries = [teamSubmission("New", 1, 100, "A", verdict)];
+      track(tracker, entries, 1000, () => random);
+      const deadline = 1000 + delay;
+      assert.equal(tracker.revealAtMsBySubmissionId.get(1), deadline);
+      // A later poll must neither reveal early nor sample a new delay.
+      track(tracker, entries, 2000, () => { throw new Error("resampled delay"); });
+      revealReadyLiveSubmissions(tracker, deadline - 1);
+      const pending = trackedSnapshot(tracker, entries);
+      assert.equal(pending.recentSubmissions[0].status, "pending");
+      assert.equal(pending.recentSubmissions[0].summary, "? +0");
+      assert.equal(pending.teams[0].problems[0].kind, "queued");
+      assert.equal(pending.teams[0].solved, 0);
+      assert.equal(pending.teams[0].penalty, 0);
+      // No new API poll is required for the scheduled release.
+      revealReadyLiveSubmissions(tracker, deadline);
+      const revealed = trackedSnapshot(tracker, entries);
+      assert.equal(revealed.recentSubmissions[0].status,
+        verdict === "OK" ? "accepted" : verdict === "COMPILATION_ERROR" ? "compilation-error" : "rejected");
+      assert.equal(revealed.teams[0].problems[0].kind,
+        verdict === "OK" ? "solved" : verdict === "COMPILATION_ERROR" ? "untouched" : "failed");
+      assert.equal(tracker.pendingSubmissionIds.size, 0);
+      assert.equal(tracker.revealAtMsBySubmissionId.size, 0);
+    });
+  }
+}
+
+test("judging time does not consume the delay, including unfinished initial submissions", () => {
+  const tracker = createLiveSubmissionTracker();
+  const entry = teamSubmission("Judging", 1, 100, "A", "TESTING");
+  track(tracker, [entry], 0);
+  track(tracker, [entry], 20000);
+  assert.equal(tracker.revealAtMsBySubmissionId.size, 0);
+  track(tracker, [{ ...entry, verdict: "OK" }], 30000);
+  assert.equal(tracker.revealAtMsBySubmissionId.get(1), 33000);
+  revealReadyLiveSubmissions(tracker, 32999);
+  assert.equal(tracker.pendingSubmissionIds.has(1), true);
+  revealReadyLiveSubmissions(tracker, 33000);
+  assert.equal(tracker.revealedSubmissionIds.has(1), true);
+});
+
+test("initial history is ready immediately, incoming submissions have independent deadlines", () => {
+  const tracker = createLiveSubmissionTracker();
+  const history = teamSubmission("History", 1, 10);
+  track(tracker, [history], 0);
+  assert.equal(tracker.revealedSubmissionIds.has(1), true);
+  const first = teamSubmission("First", 2, 100);
+  const second = teamSubmission("Second", 3, 200);
+  track(tracker, [history, first], 1000);
+  track(tracker, [history, first, second], 2000, () => 0.999999);
+  revealReadyLiveSubmissions(tracker, 4000);
+  assert.equal(tracker.revealedSubmissionIds.has(2), true);
+  assert.equal(tracker.pendingSubmissionIds.has(3), true);
+  revealReadyLiveSubmissions(tracker, 12000);
+  assert.equal(tracker.revealedSubmissionIds.has(3), true);
+});
+
+for (const verdict of ["OK", "WRONG_ANSWER", "COMPILATION_ERROR", "TESTING"]) {
+  test(`freeze boundary hides ${verdict} before and after delay and contest end`, () => {
+    const tracker = createLiveSubmissionTracker();
+    track(tracker, [], 0);
+    const entries = [teamSubmission("Frozen", 1, 300, "A", verdict)];
+    track(tracker, entries, 1000);
+    for (const now of [1000, 4000, 100000]) {
+      revealReadyLiveSubmissions(tracker, now);
+      for (const elapsed of [300, 600]) {
+        const snapshot = trackedSnapshot(tracker, entries, elapsed, true);
+        assert.equal(snapshot.recentSubmissions[0].status, "pending");
+        assert.equal(snapshot.recentSubmissions[0].summary, "? +0");
+        assert.equal(snapshot.teams[0].problems[0].kind, "queued");
+        assert.equal(snapshot.teams[0].problems[0].wrongAttempts, 0);
+        assert.equal(snapshot.teams[0].problems[0].frozenSubmissionCount, 1);
+        assert.equal(snapshot.teams[0].solved, 0);
+        assert.equal(snapshot.teams[0].penalty, 0);
+      }
+    }
+  });
+}
+
+test("a pre-freeze submission may finish its delay during freeze", () => {
+  const tracker = createLiveSubmissionTracker();
+  track(tracker, [], 0);
+  const entries = [teamSubmission("BeforeFreeze", 1, 299)];
+  track(tracker, entries, 1000);
+  assert.equal(trackedSnapshot(tracker, entries, 300, true).teams[0].problems[0].kind, "queued");
+  revealReadyLiveSubmissions(tracker, 4000);
+  const snapshot = trackedSnapshot(tracker, entries, 301, true);
+  assert.equal(snapshot.teams[0].problems[0].kind, "solved");
+  assert.equal(snapshot.recentSubmissions[0].status, "accepted");
+});
+
+test("live delay tracks only eligible submissions", () => {
+  const tracker = createLiveSubmissionTracker();
+  track(tracker, [], 0);
+  track(tracker, [
+    teamSubmission("AtEnd", 1, 600),
+    teamSubmission("AfterEnd", 2, 601),
+    submission("PRACTICE", 100, { id: 3 }),
+    teamSubmission("BeforeStart", 4, -1)
+  ], 1000);
+  assert.equal(tracker.knownEligibleSubmissionIds.size, 0);
+  assert.equal(tracker.pendingSubmissionIds.size, 0);
+  assert.equal(tracker.revealAtMsBySubmissionId.size, 0);
 });

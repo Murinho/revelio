@@ -91,7 +91,7 @@ export function MainMenuScreen({
             </div>
 
             <button
-              className="menu-primary-button"
+              className="primary-button"
               type="button"
               onClick={onCreateContest}
             >

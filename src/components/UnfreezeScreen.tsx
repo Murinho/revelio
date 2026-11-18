@@ -76,7 +76,7 @@ export function UnfreezeScreen({ snapshot, onMainMenu }: UnfreezeScreenProps) {
             Go Back
           </button>
           <button
-            className="setup-submit-panel__button unfreeze-controls__primary"
+            className="primary-button unfreeze-controls__primary"
             type="button"
             onClick={() =>
               setRevealCount((currentCount) =>

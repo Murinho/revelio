@@ -37,3 +37,31 @@ textarea,
 select {
   font: inherit;
 }
+
+.primary-button {
+  min-height: 58px;
+  padding: 0.9rem 1.3rem;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #0bb6ff, #57f2af);
+  color: #04131d;
+  font-size: 0.95rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 18px 36px rgba(8, 27, 45, 0.34);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    filter 180ms ease;
+}
+
+.primary-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 22px 44px rgba(8, 27, 45, 0.42);
+}
+
+.primary-button:active {
+  transform: translateY(0);
+}

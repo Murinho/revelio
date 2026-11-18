@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { ContestConfiguration, ScoreboardParticipantType } from "../domain/contestConfiguration";
+import { ContestConfiguration } from "../domain/contestConfiguration";
 import { ContestSnapshot } from "../domain/types";
 import {
   buildCodeforcesContestSnapshot,
   CodeforcesSubmission,
   extractCodeforcesContestId,
-  getCodeforcesSubmissionVerdictStatus,
-  isCodeforcesSubmissionEligible,
   loadCodeforcesContestSubmissions
 } from "../services/codeforcesContestGateway";
 import { createContestGateway } from "../services/contestGateway";
+import {
+  createLiveSubmissionTracker,
+  revealReadyLiveSubmissions,
+  updateLiveSubmissionTracker
+} from "../services/liveSubmissionTracker";
 
 interface UseContestSnapshotOptions {
   elapsedSeconds?: number;
@@ -21,12 +24,6 @@ interface UseContestSnapshotResult {
   snapshot: ContestSnapshot | null;
   loading: boolean;
   error: string | null;
-}
-
-interface LiveSubmissionTracker {
-  knownEligibleSubmissionIds: Set<number>;
-  pendingSubmissionIds: Set<number>;
-  revealedSubmissionIds: Set<number>;
 }
 
 const LIVE_SCOREBOARD_POLL_INTERVAL_MS = 5_000;
@@ -131,15 +128,15 @@ function subscribeToLiveCodeforcesSnapshot({
   let hasLoadedSnapshot = false;
   let pollIntervalId: number | null = null;
   let clockIntervalId: number | null = null;
+  let revealTimeoutId: number | null = null;
   let latestSubmissions: CodeforcesSubmission[] = [];
-  let lastPolledElapsedSeconds = elapsedSecondsRef.current;
   let lastSnapshotFreezeHiddenSubmissions = shouldHideFrozenSubmissions(
     configuration,
-    lastPolledElapsedSeconds
+    elapsedSecondsRef.current
   );
   const tracker = createLiveSubmissionTracker();
 
-  const rebuildSnapshot = (snapshotElapsedSeconds = lastPolledElapsedSeconds) => {
+  const rebuildSnapshot = (snapshotElapsedSeconds = elapsedSecondsRef.current) => {
     if (!active) {
       return;
     }
@@ -162,6 +159,31 @@ function subscribeToLiveCodeforcesSnapshot({
     setLoading(false);
     hasLoadedSnapshot = true;
     lastSnapshotFreezeHiddenSubmissions = freezeHiddenSubmissions;
+  };
+
+  const scheduleNextReveal = () => {
+    if (revealTimeoutId !== null) {
+      window.clearTimeout(revealTimeoutId);
+      revealTimeoutId = null;
+    }
+
+    if (!active || tracker.revealAtMsBySubmissionId.size === 0) {
+      return;
+    }
+
+    let nextRevealAtMs = Number.POSITIVE_INFINITY;
+    for (const revealAtMs of tracker.revealAtMsBySubmissionId.values()) {
+      nextRevealAtMs = Math.min(nextRevealAtMs, revealAtMs);
+    }
+    revealTimeoutId = window.setTimeout(() => {
+      revealTimeoutId = null;
+      if (!active) {
+        return;
+      }
+      revealReadyLiveSubmissions(tracker, performance.now());
+      rebuildSnapshot();
+      scheduleNextReveal();
+    }, Math.max(0, nextRevealAtMs - performance.now()));
   };
 
   const refreshSnapshotMode = () => {
@@ -191,7 +213,6 @@ function subscribeToLiveCodeforcesSnapshot({
     }
 
     try {
-      const pollElapsedSeconds = elapsedSecondsRef.current;
       const submissions = await loadCodeforcesContestSubmissions(
         contestId,
         configuration.codeforces
@@ -202,15 +223,16 @@ function subscribeToLiveCodeforcesSnapshot({
       }
 
       latestSubmissions = submissions;
-      lastPolledElapsedSeconds = pollElapsedSeconds;
       updateLiveSubmissionTracker(
         tracker,
         latestSubmissions,
-        pollElapsedSeconds,
+        elapsedSecondsRef.current,
         configuration.includedParticipantTypes,
-        Math.max(1, Math.floor(configuration.durationMinutes * 60))
+        Math.max(1, Math.floor(configuration.durationMinutes * 60)),
+        performance.now()
       );
       rebuildSnapshot();
+      scheduleNextReveal();
     } catch (loadError) {
       if (!active) {
         return;
@@ -242,64 +264,11 @@ function subscribeToLiveCodeforcesSnapshot({
     if (clockIntervalId !== null) {
       window.clearInterval(clockIntervalId);
     }
+
+    if (revealTimeoutId !== null) {
+      window.clearTimeout(revealTimeoutId);
+    }
   };
-}
-
-function createLiveSubmissionTracker(): LiveSubmissionTracker {
-  return {
-    knownEligibleSubmissionIds: new Set(),
-    pendingSubmissionIds: new Set(),
-    revealedSubmissionIds: new Set()
-  };
-}
-
-function updateLiveSubmissionTracker(
-  tracker: LiveSubmissionTracker,
-  submissions: CodeforcesSubmission[],
-  elapsedSeconds: number,
-  includedParticipantTypes: readonly ScoreboardParticipantType[],
-  durationSeconds: number
-) {
-  submissions
-    .filter((submission) =>
-      isCodeforcesSubmissionEligible(
-        submission, elapsedSeconds, includedParticipantTypes, durationSeconds
-      )
-    )
-    .sort(compareSubmissionsChronologically)
-    .forEach((submission) => {
-      const verdictStatus = getCodeforcesSubmissionVerdictStatus(submission.verdict);
-      const hasFinalVerdict = verdictStatus !== "pending";
-      const isKnown = tracker.knownEligibleSubmissionIds.has(submission.id);
-
-      if (!isKnown) {
-        tracker.knownEligibleSubmissionIds.add(submission.id);
-
-        if (hasFinalVerdict) {
-          tracker.revealedSubmissionIds.add(submission.id);
-          return;
-        }
-
-        tracker.pendingSubmissionIds.add(submission.id);
-        return;
-      }
-
-      if (tracker.pendingSubmissionIds.has(submission.id) && hasFinalVerdict) {
-        tracker.pendingSubmissionIds.delete(submission.id);
-        tracker.revealedSubmissionIds.add(submission.id);
-      }
-    });
-}
-
-function compareSubmissionsChronologically(
-  leftSubmission: CodeforcesSubmission,
-  rightSubmission: CodeforcesSubmission
-): number {
-  return (
-    (leftSubmission.relativeTimeSeconds ?? 0) -
-      (rightSubmission.relativeTimeSeconds ?? 0) ||
-    leftSubmission.id - rightSubmission.id
-  );
 }
 
 function formatSnapshotError(loadError: unknown): string {
