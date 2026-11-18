@@ -1,6 +1,7 @@
 import {
   ContestCodeforcesCredentials,
   ContestConfiguration,
+  ScoreboardParticipantType,
   formatDurationClock,
   formatFreezeWindowLabel
 } from "../domain/contestConfiguration";
@@ -102,11 +103,6 @@ const FALLBACK_BALLOON_COLORS = [
 ];
 const LIVE_RECENT_SUBMISSION_LIMIT = 20;
 const PENDING_VERDICTS = new Set(["", "SKIPPED", "SUBMITTED", "TESTING"]);
-const INCLUDED_PARTICIPANT_TYPES: CodeforcesParticipantType[] = [
-  "CONTESTANT",
-  "VIRTUAL"
-];
-const INCLUDED_PARTICIPANT_TYPE_SET = new Set(INCLUDED_PARTICIPANT_TYPES);
 
 export function createCodeforcesContestGateway(): ContestGateway {
   return {
@@ -239,7 +235,8 @@ export function buildCodeforcesContestSnapshot(
     isConsideredCodeforcesSubmission(
       submission,
       elapsedLimitSeconds,
-      problemsByIndex
+      problemsByIndex,
+      configuration.includedParticipantTypes
     )
   );
   const relevantConsideredSubmissions =
@@ -303,12 +300,15 @@ export function buildCodeforcesContestSnapshot(
 
 export function isCodeforcesSubmissionEligible(
   submission: CodeforcesSubmission,
-  elapsedSeconds: number
+  elapsedSeconds: number,
+  includedParticipantTypes: readonly ScoreboardParticipantType[]
 ): boolean {
   const relativeTimeSeconds = submission.relativeTimeSeconds;
 
   return (
-    isIncludedParticipantType(submission.author.participantType) &&
+    includedParticipantTypes.some(
+      (participantType) => participantType === submission.author.participantType
+    ) &&
     relativeTimeSeconds !== undefined &&
     relativeTimeSeconds >= 0 &&
     relativeTimeSeconds <= Math.max(0, Math.floor(elapsedSeconds))
@@ -378,10 +378,11 @@ function buildProblems(
 function isConsideredCodeforcesSubmission(
   submission: CodeforcesSubmission,
   elapsedLimitSeconds: number,
-  problemsByIndex: Set<string>
+  problemsByIndex: Set<string>,
+  includedParticipantTypes: readonly ScoreboardParticipantType[]
 ): boolean {
   return (
-    isCodeforcesSubmissionEligible(submission, elapsedLimitSeconds) &&
+    isCodeforcesSubmissionEligible(submission, elapsedLimitSeconds, includedParticipantTypes) &&
     problemsByIndex.has(submission.problem.index)
   );
 }
@@ -1088,12 +1089,6 @@ function computeIcpcPenalty(relativeTimeSeconds: number, wrongAttempts: number):
 
 function toContestMinute(relativeTimeSeconds: number): number {
   return Math.max(0, Math.floor(relativeTimeSeconds / 60));
-}
-
-function isIncludedParticipantType(
-  participantType: CodeforcesParticipantType
-): boolean {
-  return INCLUDED_PARTICIPANT_TYPE_SET.has(participantType);
 }
 
 function getPartyKey(party: CodeforcesParty): string | null {

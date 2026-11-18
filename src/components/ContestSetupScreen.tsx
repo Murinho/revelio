@@ -3,6 +3,7 @@ import type { CSSProperties, FormEvent } from "react";
 import {
   calculateContestEndDate,
   ContestConfiguration,
+  CODEFORCES_SCOREBOARD_PARTICIPANT_TYPES,
   MAX_PROBLEM_COUNT,
   formatLocalEndSummary,
   formatFreezeWindowLabel,
@@ -474,6 +475,43 @@ export function ContestSetupScreen({
                   />
                 </label>
               </div>
+            </Panel>
+            <Panel
+              title="Scoreboard Participants"
+              eyebrow="Include participant types"
+              className="setup-panel"
+            >
+              <fieldset className="setup-participants">
+                <legend className="setup-field__label">Included in both scoreboards</legend>
+                <p className="setup-field__hint" id="setup-participants-hint">
+                  Choose who appears in the live scoreboard and revelator.
+                </p>
+                {CODEFORCES_SCOREBOARD_PARTICIPANT_TYPES.map((participantType) => (
+                  <label className="setup-participants__option" key={participantType}>
+                    <input
+                      type="checkbox"
+                      checked={configuration.includedParticipantTypes.includes(participantType)}
+                      aria-describedby="setup-participants-hint"
+                      onChange={(event) =>
+                        updateField(
+                          "includedParticipantTypes",
+                          event.target.checked
+                            ? [...configuration.includedParticipantTypes, participantType]
+                            : configuration.includedParticipantTypes.filter(
+                                (includedType) => includedType !== participantType
+                              )
+                        )
+                      }
+                    />
+                    <span>{participantType}</span>
+                  </label>
+                ))}
+                {configuration.includedParticipantTypes.length === 0 ? (
+                  <p className="setup-field__hint" role="status">
+                    No types selected. Both scoreboards will be empty.
+                  </p>
+                ) : null}
+              </fieldset>
             </Panel>
           </div>
 

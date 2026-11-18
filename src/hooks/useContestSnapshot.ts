@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { ContestConfiguration } from "../domain/contestConfiguration";
+import { ContestConfiguration, ScoreboardParticipantType } from "../domain/contestConfiguration";
 import { ContestSnapshot } from "../domain/types";
 import {
   buildCodeforcesContestSnapshot,
@@ -206,7 +206,8 @@ function subscribeToLiveCodeforcesSnapshot({
       updateLiveSubmissionTracker(
         tracker,
         latestSubmissions,
-        pollElapsedSeconds
+        pollElapsedSeconds,
+        configuration.includedParticipantTypes
       );
       rebuildSnapshot();
     } catch (loadError) {
@@ -254,10 +255,13 @@ function createLiveSubmissionTracker(): LiveSubmissionTracker {
 function updateLiveSubmissionTracker(
   tracker: LiveSubmissionTracker,
   submissions: CodeforcesSubmission[],
-  elapsedSeconds: number
+  elapsedSeconds: number,
+  includedParticipantTypes: readonly ScoreboardParticipantType[]
 ) {
   submissions
-    .filter((submission) => isCodeforcesSubmissionEligible(submission, elapsedSeconds))
+    .filter((submission) =>
+      isCodeforcesSubmissionEligible(submission, elapsedSeconds, includedParticipantTypes)
+    )
     .sort(compareSubmissionsChronologically)
     .forEach((submission) => {
       const verdictStatus = getCodeforcesSubmissionVerdictStatus(submission.verdict);

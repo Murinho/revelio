@@ -17,6 +17,15 @@ npm run dev
 Create a production build with `npm run build`. Preview it locally with
 `npm run preview`.
 
+Run participant filtering regression tests with `npm test`.
+
+When creating or editing a Codeforces contest, use **Scoreboard Participants**
+beside **Codeforces Access** to include `CONTESTANT`, `OUT_OF_COMPETITION`, and/or
+`VIRTUAL`. Save Settings applies the selection to both the live scoreboard and
+the revelator, including rankings, recent submissions, and the reveal queue.
+Contestant and Virtual are selected by default. Clearing all three produces an
+empty scoreboard. Practice and Manager participants are always excluded.
+
 Commit `package.json` and `package-lock.json` when changing dependencies.
 Installed dependencies (`node_modules/`), production output (`dist/`), caches,
 and local environment files are ignored and recreated locally.
