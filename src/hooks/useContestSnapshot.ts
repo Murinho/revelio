@@ -29,7 +29,7 @@ interface LiveSubmissionTracker {
   revealedSubmissionIds: Set<number>;
 }
 
-const LIVE_SCOREBOARD_POLL_INTERVAL_MS = 10_000;
+const LIVE_SCOREBOARD_POLL_INTERVAL_MS = 5_000;
 
 export function useContestSnapshot(
   configuration: ContestConfiguration | null,
