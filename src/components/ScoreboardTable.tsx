@@ -71,13 +71,17 @@ export function ScoreboardTable({
 
       hasTableReorder = true;
       rowElement.getAnimations().forEach((animation) => animation.cancel());
+      // Keep rising rows above the rows they pass for the entire animation.
+      const zIndex = deltaY > 0 ? 1 : 0;
       rowElement.animate(
         [
           {
-            transform: `translateY(${deltaY}px)`
+            transform: `translateY(${deltaY}px)`,
+            zIndex
           },
           {
-            transform: "translateY(0)"
+            transform: "translateY(0)",
+            zIndex
           }
         ],
         {

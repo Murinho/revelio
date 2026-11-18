@@ -489,6 +489,8 @@
   --rank-width: 54px;
   --team-width: 570px;
   --score-width: 68px;
+  /* Preserve table-relative row offsets used by animation and auto-follow. */
+  position: relative;
   border-collapse: separate;
   border-spacing: var(--cell-gap);
   width: max-content;
@@ -548,6 +550,7 @@
 }
 
 .scoreboard-table__row {
+  position: relative;
   cursor: default;
   will-change: transform;
 }
