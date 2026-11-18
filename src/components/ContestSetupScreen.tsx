@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import {
   calculateContestEndDate,
-  calculateDurationMinutesFromLocalEndDateTimeInputValue,
   ContestConfiguration,
   MAX_PROBLEM_COUNT,
   formatLocalEndSummary,
@@ -11,7 +10,6 @@ import {
   formatLocalUtcOffset,
   parseUtcDateTimeInputValue,
   resizeContestProblems,
-  toLocalEndDateTimeInputValue,
   toLocalStartDateTimeInputValue,
   toUtcStartDateTimeInputValue
 } from "../domain/contestConfiguration";
@@ -43,8 +41,6 @@ export function ContestSetupScreen({
   onProceed
 }: ContestSetupScreenProps) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
-  const [draftLocalEndAt, setDraftLocalEndAt] = useState<string | null>(null);
-  const [endInputError, setEndInputError] = useState<string | null>(null);
   const problemCount = configuration.problems.length;
   const hasCredentials =
     configuration.codeforces.apiKey.trim().length > 0 &&
@@ -52,15 +48,8 @@ export function ContestSetupScreen({
   const hasContestUrl = configuration.contestUrl.trim().length > 0;
   const shareableScoreboardUrl = `${window.location.origin}${shareableScoreboardPath}`;
   const localStartAt = toLocalStartDateTimeInputValue(configuration.startAtUtc);
-  const localEndAt = toLocalEndDateTimeInputValue(
-    configuration.startAtUtc,
-    configuration.durationMinutes
-  );
-  const minimumLocalEndAt = toLocalEndDateTimeInputValue(configuration.startAtUtc, 1);
-  const displayedLocalEndAt = draftLocalEndAt ?? localEndAt;
   const localUtcOffset = formatLocalUtcOffset(configuration.startAtUtc);
-  const timingValidationMessage = getTimingValidationMessage(configuration);
-  const visibleTimingError = endInputError ?? timingValidationMessage;
+  const visibleTimingError = getTimingValidationMessage(configuration);
   const scoreboardStatus = scoreboardError
     ? "The contest feed could not be loaded from Codeforces. Double-check the URL or fall back to the mock preview for layout work."
     : isScoreboardLoading
@@ -70,11 +59,6 @@ export function ContestSetupScreen({
           ? "The scoreboard will use signed Codeforces contest data behind this URL and apply your freeze window and balloon colors."
           : "Enter Codeforces API credentials to load the live standings and submissions behind this URL."
         : "The scoreboard preview is ready with mock data and will reflect your contest title, timing, problem count, and balloon palette.";
-
-  useEffect(() => {
-    setDraftLocalEndAt(null);
-    setEndInputError(null);
-  }, [configuration.startAtUtc, configuration.durationMinutes]);
 
   function updateField<K extends keyof ContestConfiguration>(
     field: K,
@@ -94,16 +78,12 @@ export function ContestSetupScreen({
   }
 
   function handleStartDateTimeChange(nextLocalStartAt: string) {
-    setDraftLocalEndAt(null);
-    setEndInputError(null);
     updateField("startAtUtc", toUtcStartDateTimeInputValue(nextLocalStartAt));
   }
 
   function handleDurationChange(nextDurationMinutes: number) {
     const safeDurationMinutes = normalizeDurationMinutes(nextDurationMinutes);
 
-    setDraftLocalEndAt(null);
-    setEndInputError(null);
 
     onChange({
       ...configuration,
@@ -111,39 +91,6 @@ export function ContestSetupScreen({
       freezeDurationMinutes: Math.min(
         configuration.freezeDurationMinutes,
         safeDurationMinutes
-      )
-    });
-  }
-
-  function handleEndDateTimeChange(nextLocalEndAt: string) {
-    setDraftLocalEndAt(nextLocalEndAt);
-
-    if (!nextLocalEndAt) {
-      setEndInputError("Choose an end date and time later than the contest start.");
-      return;
-    }
-
-    const nextDurationMinutes =
-      calculateDurationMinutesFromLocalEndDateTimeInputValue(
-        configuration.startAtUtc,
-        nextLocalEndAt
-      );
-
-    if (nextDurationMinutes === null) {
-      setEndInputError(
-        "End date and time must be strictly later than the contest start."
-      );
-      return;
-    }
-
-    setDraftLocalEndAt(null);
-    setEndInputError(null);
-    onChange({
-      ...configuration,
-      durationMinutes: nextDurationMinutes,
-      freezeDurationMinutes: Math.min(
-        configuration.freezeDurationMinutes,
-        nextDurationMinutes
       )
     });
   }
@@ -368,6 +315,24 @@ export function ContestSetupScreen({
                     autoComplete="off"
                   />
                 </label>
+
+                <label className="setup-field setup-field--full">
+                  <span className="setup-field__label">Amount of Problems</span>
+                  <span className="setup-field__hint">Controls the balloon palette below.</span>
+                  <select
+                    className="setup-input"
+                    value={problemCount}
+                    onChange={(event) =>
+                      handleProblemCountChange(Number.parseInt(event.target.value, 10))
+                    }
+                  >
+                    {problemCountOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option} {option === 1 ? "problem" : "problems"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
             </Panel>
 
@@ -409,30 +374,6 @@ export function ContestSetupScreen({
                 </label>
 
                 <label className="setup-field">
-                  <span className="setup-field__label">End date and time</span>
-                  <span className="setup-field__hint">
-                    Alternative to setting contest duration.
-                  </span>
-                  <input
-                    className={`setup-input ${
-                      visibleTimingError ? "setup-input--invalid" : ""
-                    }`.trim()}
-                    type="datetime-local"
-                    value={displayedLocalEndAt}
-                    min={minimumLocalEndAt}
-                    placeholder={localEndAt}
-                    onChange={(event) =>
-                      handleEndDateTimeChange(event.target.value)
-                    }
-                    aria-describedby={
-                      visibleTimingError ? "setup-timing-error" : undefined
-                    }
-                    aria-invalid={Boolean(visibleTimingError)}
-                    required
-                  />
-                </label>
-
-                <label className="setup-field">
                   <span className="setup-field__label">Freezing Time</span>
                   <span className="setup-field__hint">Minutes hidden at the end.</span>
                   <input
@@ -448,24 +389,6 @@ export function ContestSetupScreen({
                       )
                     }
                   />
-                </label>
-
-                <label className="setup-field">
-                  <span className="setup-field__label">Amount of Problems</span>
-                  <span className="setup-field__hint">Controls the balloon palette below.</span>
-                  <select
-                    className="setup-input"
-                    value={problemCount}
-                    onChange={(event) =>
-                      handleProblemCountChange(Number.parseInt(event.target.value, 10))
-                    }
-                  >
-                    {problemCountOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option} problems
-                      </option>
-                    ))}
-                  </select>
                 </label>
 
                 {visibleTimingError ? (
