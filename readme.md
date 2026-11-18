@@ -5,9 +5,23 @@ Frontend UI scaffold:
 - Modular scoreboard components
 - Mock contest gateway ready to swap for a Python backend later
 
-Run locally after installing dependencies:
+The current Vite version requires Node.js 18.x or 20+ and npm.
+After cloning, install the exact dependencies recorded in `package-lock.json`
+and start the development server:
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
+
+Create a production build with `npm run build`. Preview it locally with
+`npm run preview`.
+
+Commit `package.json` and `package-lock.json` when changing dependencies.
+Installed dependencies (`node_modules/`), production output (`dist/`), caches,
+and local environment files are ignored and recreated locally.
+
+No environment file is required. Codeforces contest URLs use the Codeforces API;
+other contest URLs use mock data.
+To configure an HTTP backend, set `VITE_REVELIO_API_BASE_URL` in `.env.local`.
+Vite exposes `VITE_` variables to the browser, so do not put secrets in them.

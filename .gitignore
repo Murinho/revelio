@@ -1,0 +1,29 @@
+# Installed dependencies (recreated with npm ci)
+node_modules/
+
+# Vite build output and cache
+/dist/
+.vite/
+
+# TypeScript incremental build metadata
+*.tsbuildinfo
+
+# Package manager debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local environment values; keep shareable examples versioned
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Operating system metadata
+.DS_Store
+Thumbs.db
+
+# Editor temporary files
+*.swp
+*.swo
