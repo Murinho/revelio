@@ -269,6 +269,7 @@ export function App() {
       <main className="app">
         <div className="app__backdrop" />
         <ContestSetupScreen
+          isEditing={editingContestId !== null}
           configuration={configuration}
           shareableScoreboardPath={shareableScoreboardPath}
           onChange={setConfiguration}

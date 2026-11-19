@@ -18,6 +18,7 @@ import "./ContestSetupScreen.css";
 import "./ConfirmationDialog.css";
 
 interface ContestSetupScreenProps {
+  isEditing: boolean;
   configuration: ContestConfiguration;
   shareableScoreboardPath: string;
   onChange: (nextConfiguration: ContestConfiguration) => void;
@@ -32,6 +33,7 @@ const problemCountOptions = Array.from(
 );
 
 export function ContestSetupScreen({
+  isEditing,
   configuration,
   shareableScoreboardPath,
   onChange,
@@ -187,7 +189,9 @@ export function ContestSetupScreen({
             <span className="setup-hero-panel__badge">Contest Control Room</span>
             <div className="setup-hero-panel__logo">R</div>
             <p className="setup-hero-panel__eyebrow">Revelio</p>
-            <h1 className="setup-hero-panel__title">Create Contest</h1>
+            <h1 className="setup-hero-panel__title">
+              {isEditing ? "Edit Contest" : "Create Contest"}
+            </h1>
             <p className="setup-hero-panel__description">
               Configure the contest identity, local timing, balloon palette, and
               Codeforces credentials from one polished launch surface.
@@ -518,7 +522,6 @@ export function ContestSetupScreen({
               className="setup-panel"
             >
               <fieldset className="setup-participants">
-                <legend className="setup-field__label">Included in both scoreboards</legend>
                 <p className="setup-field__hint" id="setup-participants-hint">
                   Choose at least one type to appear in the live scoreboard and revelator.
                 </p>
