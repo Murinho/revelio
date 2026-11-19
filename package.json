@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "test:browser": "node tests/recentSubmissions.browser.mjs && node tests/countdown.browser.mjs",
+    "test:browser": "node tests/recentSubmissions.browser.mjs && node tests/countdown.browser.mjs && node tests/pendingCells.browser.mjs",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview"

@@ -760,8 +760,38 @@
 }
 
 .problem-cell--pending {
+  isolation: isolate;
   background: linear-gradient(180deg, #ffe473, #ffca36);
   color: #10151c;
+}
+
+.problem-cell--pending::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(180deg, #9c853e, #9b7620);
+  opacity: 0;
+  pointer-events: none;
+  animation: pending-cell-heartbeat 1.2s ease-in-out 3;
+}
+
+@keyframes pending-cell-heartbeat {
+  0%,
+  100% {
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .problem-cell--pending::before {
+    animation: none;
+  }
 }
 
 .problem-cell--pending .problem-cell__main {
