@@ -40,19 +40,34 @@ export const MIN_PROBLEM_COUNT = 1;
 export const MAX_PROBLEM_COUNT = 26;
 export const DEFAULT_PROBLEM_COUNT = 12;
 
-const DEFAULT_BALLOON_COLORS = [
-  "#f5f7fb",
-  "#ff9326",
-  "#ff5d4d",
-  "#ffde3c",
-  "#a8ff35",
-  "#34db64",
-  "#2452ff",
-  "#34d6ff",
-  "#f845ff",
-  "#a51bda",
-  "#5aff4b",
-  "#ffd35c"
+// One distinct default per problem, ordered A–Z. Shared by setup and gateways.
+export const DEFAULT_BALLOON_COLORS: readonly string[] = [
+  "#ffffff", // A: white
+  "#000000", // B: black
+  "#ff0000", // C: red
+  "#8b4513", // D: brown
+  "#ffff00", // E: yellow
+  "#008000", // F: green
+  "#ff8000", // G: orange
+  "#000080", // H: navy blue
+  "#ff69b4", // I: pink
+  "#800080", // J: purple
+  "#80ff00", // K: lime green
+  "#00ffff", // L: cyan
+  "#808080", // M: gray
+  "#2563eb", // N: royal blue
+  "#008080", // O: teal
+  "#ff00ff", // P: magenta
+  "#b8860b", // Q: dark goldenrod
+  "#fa8072", // R: salmon
+  "#bca7ff", // S: lavender
+  "#aaffc3", // T: mint
+  "#ffd8b1", // U: peach
+  "#808000", // V: olive
+  "#800020", // W: burgundy
+  "#6699b3", // X: steel blue
+  "#c4a484", // Y: tan
+  "#004d2b" // Z: forest green
 ];
 
 export function createDefaultContestConfiguration(now = new Date()): ContestConfiguration {

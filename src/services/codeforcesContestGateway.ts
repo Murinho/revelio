@@ -2,6 +2,7 @@ import { applyFirstToSolveFlags, rankTeams } from "../domain/standings";
 import {
   ContestCodeforcesCredentials,
   ContestConfiguration,
+  DEFAULT_BALLOON_COLORS,
   ScoreboardParticipantType,
   formatDurationClock,
   formatFreezeWindowLabel
@@ -88,20 +89,6 @@ interface SubmissionRevealState {
 }
 
 const CODEFORCES_PAGE_SIZE = 5000;
-const FALLBACK_BALLOON_COLORS = [
-  "#f5f7fb",
-  "#ff9326",
-  "#ff5d4d",
-  "#ffde3c",
-  "#a8ff35",
-  "#34db64",
-  "#2452ff",
-  "#34d6ff",
-  "#f845ff",
-  "#a51bda",
-  "#5aff4b",
-  "#ffd35c"
-];
 const LIVE_RECENT_SUBMISSION_LIMIT = 20;
 const PENDING_VERDICTS = new Set(["", "SKIPPED", "SUBMITTED", "TESTING"]);
 
@@ -356,7 +343,7 @@ function buildProblems(
       label: problem.label,
       color:
         configuredColorsByLabel.get(problem.label) ??
-        FALLBACK_BALLOON_COLORS[index % FALLBACK_BALLOON_COLORS.length]
+        DEFAULT_BALLOON_COLORS[index % DEFAULT_BALLOON_COLORS.length]
     });
   });
 
@@ -372,7 +359,7 @@ function buildProblems(
       label: problemIndex,
       color:
         configuredColorsByLabel.get(problemIndex) ??
-        FALLBACK_BALLOON_COLORS[problemByIndex.size % FALLBACK_BALLOON_COLORS.length]
+        DEFAULT_BALLOON_COLORS[problemByIndex.size % DEFAULT_BALLOON_COLORS.length]
     });
   });
 

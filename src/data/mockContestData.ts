@@ -1,3 +1,4 @@
+import { DEFAULT_BALLOON_COLORS } from "../domain/contestConfiguration";
 import {
   ContestSnapshot,
   ProblemCellState,
@@ -22,21 +23,6 @@ type CellRecipe =
       frozenSubmissionCount: number;
     }
   | { kind: "solved"; wrongAttempts: number; solveTime: number };
-
-const BALLOON_COLORS = [
-  "#f5f7fb",
-  "#ff9326",
-  "#ff5d4d",
-  "#ffde3c",
-  "#a8ff35",
-  "#34db64",
-  "#2452ff",
-  "#34d6ff",
-  "#f845ff",
-  "#a51bda",
-  "#5aff4b",
-  "#ffd35c"
-];
 
 const TEAM_BLUEPRINTS: TeamBlueprint[] = [
   { name: "Ooga Booga", organization: "UFMG", movement: 1 },
@@ -164,7 +150,7 @@ function createProblem(index: number): ProblemMeta {
   return {
     id: label,
     label,
-    color: BALLOON_COLORS[index % BALLOON_COLORS.length]
+    color: DEFAULT_BALLOON_COLORS[index % DEFAULT_BALLOON_COLORS.length]
   };
 }
 
