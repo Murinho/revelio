@@ -330,7 +330,7 @@
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  width: max-content;
+  width: calc(var(--team-width) + 148px + 0.54rem);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -771,7 +771,7 @@
   inset: 0;
   z-index: -1;
   border-radius: inherit;
-  background: linear-gradient(180deg, #9c853e, #9b7620);
+  background: linear-gradient(180deg, #9c853e, #7f621f);
   opacity: 0;
   pointer-events: none;
   animation: pending-cell-heartbeat 1.2s ease-in-out 3;
