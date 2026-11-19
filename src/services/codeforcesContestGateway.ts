@@ -191,6 +191,8 @@ export async function loadCodeforcesContestSubmissions(
       "contest.status",
       {
         contestId,
+        asManager:
+          credentials.apiKey.trim() && credentials.apiSecret.trim() ? true : undefined,
         from,
         count: CODEFORCES_PAGE_SIZE,
         lang: "en"
