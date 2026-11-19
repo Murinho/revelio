@@ -529,7 +529,7 @@ function buildProblemCell(
       };
     }
 
-    if (finalWrongAttempts > 0) {
+    if (attempts.length > 0) {
       return {
         kind: "failed",
         problemId: problem.id,
@@ -639,7 +639,7 @@ function buildProblemCell(
     };
   }
 
-  if (preFreezeWrongAttempts > 0) {
+  if (attempts.some((attempt) => attempt.relativeTimeSeconds < freezeStartSeconds)) {
     return {
       kind: "failed",
       problemId: problem.id,

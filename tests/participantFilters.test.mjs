@@ -379,7 +379,16 @@ for (const verdict of ["OK", "WRONG_ANSWER", "COMPILATION_ERROR"]) {
       assert.equal(revealed.recentSubmissions[0].status,
         verdict === "OK" ? "accepted" : verdict === "COMPILATION_ERROR" ? "compilation-error" : "rejected");
       assert.equal(revealed.teams[0].problems[0].kind,
-        verdict === "OK" ? "solved" : verdict === "COMPILATION_ERROR" ? "untouched" : "failed");
+        verdict === "OK" ? "solved" : "failed");
+      if (verdict === "COMPILATION_ERROR") {
+        for (const freeze of [false, true]) {
+          const snapshot = trackedSnapshot(tracker, entries, freeze ? 300 : 299, freeze);
+          assert.equal(snapshot.teams[0].problems[0].kind, "failed");
+          assert.equal(snapshot.teams[0].problems[0].wrongAttempts, 0);
+          assert.equal(snapshot.recentSubmissions[0].summary, "X +0");
+          assert.equal(snapshot.teams[0].penalty, 0);
+        }
+      }
       assert.equal(tracker.pendingSubmissionIds.size, 0);
       assert.equal(tracker.revealAtMsBySubmissionId.size, 0);
     });
