@@ -369,6 +369,7 @@ export function App() {
           <aside className="app__sidebar">
             <TimerPanel clock={contestClock} snapshot={snapshot} />
             <RecentSubmissionsPanel
+              firstToSolveTwinkleMinute={firstToSolveTwinkleMinute}
               problems={snapshot.problems}
               submissions={snapshot.recentSubmissions}
               teams={snapshot.teams}
@@ -409,11 +410,7 @@ function getFirstToSolveTwinkleMinute(
     return null;
   }
 
-  const secondsSinceFullMinute = elapsedSeconds % 60;
-
-  if (secondsSinceFullMinute >= 5) {
-    return null;
-  }
-
+  // Keep the minute stable between boundaries; solved cells own the animation
+  // lifetime so a verdict reveal always gets its full five seconds.
   return Math.floor(elapsedSeconds / 60);
 }

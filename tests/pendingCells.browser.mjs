@@ -96,7 +96,7 @@ try {
       render(status);
       cells().forEach((cell) => {
         check(!heartbeat(cell), "verdict immediately removes heartbeat");
-        check(getComputedStyle(cell, "::before").content === "none", "verdict removes dark overlay");
+        check(getComputedStyle(cell, "::before").content === (status === "accepted" ? '""' : "none"), "verdict replaces dark overlay with first-to-solve sheen only on acceptance");
         check(cell.classList.contains(status === "accepted" ? "problem-cell--solved" : "problem-cell--failed"), "correct verdict style");
       });
       check(active.every((animation) => animation.playState === "idle"), "interrupted animations are cancelled");
