@@ -281,6 +281,46 @@ export function App() {
     );
   }
 
+  const scoreboardActions = (
+    <div className="scoreboard-toolbar__actions">
+      <button
+        className="secondary-button"
+        onClick={() => navigate(HOME_PATH)}
+      >
+        Back to Main Menu
+      </button>
+      <button
+        className="secondary-button"
+        onClick={() => navigate(CREATE_CONTEST_PATH)}
+      >
+        Edit Contest
+      </button>
+    </div>
+  );
+
+  if (contestClock.phase === "standby") {
+    return (
+      <main className="app">
+        <div className="app__backdrop" />
+        <div className="app__scoreboard app__scoreboard--standby">
+          <header className="scoreboard-toolbar">{scoreboardActions}</header>
+          <section className="contest-countdown" aria-labelledby="countdown-contest-name">
+            <div
+              className="contest-countdown__time"
+              role="timer"
+              aria-label="Time until contest starts"
+            >
+              {contestClock.countdownLabel}
+            </div>
+            <h1 id="countdown-contest-name" className="contest-countdown__name">
+              {configuration.contestName}
+            </h1>
+          </section>
+        </div>
+      </main>
+    );
+  }
+
   if (loading) {
     return (
       <main className="app app--loading">
@@ -323,20 +363,7 @@ export function App() {
       <div className="app__backdrop" />
       <div className="app__scoreboard">
         <header className="scoreboard-toolbar">
-          <div className="scoreboard-toolbar__actions">
-            <button
-              className="secondary-button"
-              onClick={() => navigate(HOME_PATH)}
-            >
-              Back to Main Menu
-            </button>
-            <button
-              className="secondary-button"
-              onClick={() => navigate(CREATE_CONTEST_PATH)}
-            >
-              Edit Contest
-            </button>
-          </div>
+          {scoreboardActions}
 
           <div className="scoreboard-toolbar__summary">
             <span className="scoreboard-toolbar__chip">Contest {route.contestId}</span>

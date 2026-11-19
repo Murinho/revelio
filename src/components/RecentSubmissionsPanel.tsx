@@ -7,6 +7,7 @@ import {
 } from "../domain/types";
 import { Panel } from "./Panel";
 import { truncateTeamLabel } from "../utils/format";
+import { useSubmissionMotion } from "../hooks/useSubmissionMotion";
 
 interface RecentSubmissionsPanelProps {
   problems: ProblemMeta[];
@@ -42,6 +43,7 @@ export function RecentSubmissionsPanel({
   submissions,
   teams
 }: RecentSubmissionsPanelProps) {
+  const rowElementsRef = useSubmissionMotion();
   const teamByName = new Map(teams.map((team) => [team.name, team]));
   const teamById = new Map(teams.map((team) => [team.id, team]));
   const problemByLabel = new Map(problems.map((problem) => [problem.label, problem]));
@@ -65,7 +67,7 @@ export function RecentSubmissionsPanel({
   return (
     <Panel title="Last Submissions">
       <ul className="submission-list">
-        {submissions.map((submission) => {
+        {submissions.map((submission, index) => {
           const team =
             (submission.teamId ? teamById.get(submission.teamId) : undefined) ??
             teamByName.get(submission.teamName);
@@ -83,7 +85,15 @@ export function RecentSubmissionsPanel({
             : submission.teamName;
 
           return (
-            <li className="submission-list__row" key={submission.id}>
+            <li
+              className="submission-list__row"
+              key={submission.id}
+              style={{ zIndex: submissions.length - index }}
+              ref={(element) => {
+                if (element) rowElementsRef.current.set(submission.id, element);
+                else rowElementsRef.current.delete(submission.id);
+              }}
+            >
               <span
                 className={`submission-list__cell submission-list__cell--rank submission-list__rank ${rankCellClass}`.trim()}
               >

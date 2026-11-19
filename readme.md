@@ -19,6 +19,12 @@ Create a production build with `npm run build`. Preview it locally with
 
 Run participant filtering regression tests with `npm test`.
 
+Run the submission animation browser regression with Node.js 20+ and `npm run test:browser`.
+Install its Chromium browser once with `npx playwright install chromium`, or
+use an existing Chrome installation with `PLAYWRIGHT_CHANNEL=chrome npm run test:browser`.
+The test checks intermediate frames, rapid arrivals, overlapping rows, verdict
+updates, and reduced motion preferences.
+
 When creating or editing a Codeforces contest, use **Scoreboard Participants**
 beside **Codeforces Access** to include `CONTESTANT`, `OUT_OF_COMPETITION`, and/or
 `VIRTUAL`. Save Settings applies the selection to both the live scoreboard and
