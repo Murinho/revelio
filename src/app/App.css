@@ -1,4 +1,5 @@
 .app {
+  --team-width: 570px;
   position: relative;
   min-height: 100vh;
   overflow: auto;
@@ -288,6 +289,7 @@
 }
 
 .submission-list {
+  width: max-content;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -297,7 +299,7 @@
 
 .submission-list__row {
   display: grid;
-  grid-template-columns: 58px 250px 34px 56px;
+  grid-template-columns: 58px var(--team-width) 34px 56px;
   align-items: stretch;
   gap: 0.18rem;
   height: 60px;
@@ -352,6 +354,9 @@
   justify-content: center;
   height: 60px;
   padding: 0.22rem 0.56rem;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   text-align: center;
 }
 
@@ -487,7 +492,6 @@
 .scoreboard-table {
   --cell-gap: 3px;
   --rank-width: 54px;
-  --team-width: 570px;
   --score-width: 68px;
   /* Preserve table-relative row offsets used by animation and auto-follow. */
   position: relative;

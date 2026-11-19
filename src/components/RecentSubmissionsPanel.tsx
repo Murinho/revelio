@@ -6,6 +6,7 @@ import {
   TeamStanding
 } from "../domain/types";
 import { Panel } from "./Panel";
+import { truncateTeamLabel } from "../utils/format";
 
 interface RecentSubmissionsPanelProps {
   problems: ProblemMeta[];
@@ -75,6 +76,11 @@ export function RecentSubmissionsPanel({
             ? getSolvedProblemCell(team, submission.problemLabel)
             : null;
           const problem = problemByLabel.get(submission.problemLabel);
+          const teamLabel = team
+            ? team.organization
+              ? `[${team.organization}] ${team.name}`
+              : team.name
+            : submission.teamName;
 
           return (
             <li className="submission-list__row" key={submission.id}>
@@ -84,12 +90,8 @@ export function RecentSubmissionsPanel({
                 {team ? team.rank : submission.contestMinute}
               </span>
               <div className="submission-list__cell submission-list__cell--team submission-list__details">
-                <p className="submission-list__team">
-                  {team
-                    ? team.organization
-                      ? `[${team.organization}] ${team.name}`
-                      : team.name
-                    : submission.teamName}
+                <p className="submission-list__team" title={teamLabel}>
+                  {truncateTeamLabel(teamLabel)}
                 </p>
                 {team?.members && team.members.length > 0 ? (
                   <p className="submission-list__team-meta">

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { ProblemMeta, TeamStanding } from "../domain/types";
-import { formatPenalty } from "../utils/format";
+import { formatPenalty, truncateTeamLabel } from "../utils/format";
 import { ProblemCell } from "./ProblemCell";
 
 interface ScoreboardTableProps {
@@ -235,11 +235,6 @@ export function ScoreboardTable({
 
   function getTeamPrimaryLabel(team: TeamStanding) {
     return team.organization ? `[${team.organization}] ${team.name}` : team.name;
-  }
-
-  function truncateTeamLabel(label: string) {
-    const characters = Array.from(label);
-    return characters.length > 50 ? `${characters.slice(0, 47).join("")}...` : label;
   }
 
   function getTeamMetaLabel(team: TeamStanding) {
