@@ -11,6 +11,20 @@ export interface ContestCodeforcesCredentials {
   apiSecret: string;
 }
 
+export const CODEFORCES_SCOREBOARD_PARTICIPANT_TYPES = [
+  "CONTESTANT",
+  "OUT_OF_COMPETITION",
+  "VIRTUAL"
+] as const;
+
+export type ScoreboardParticipantType =
+  (typeof CODEFORCES_SCOREBOARD_PARTICIPANT_TYPES)[number];
+
+export const DEFAULT_INCLUDED_PARTICIPANT_TYPES: readonly ScoreboardParticipantType[] = [
+  "CONTESTANT",
+  "VIRTUAL"
+];
+
 export interface ContestConfiguration {
   contestName: string;
   startAtUtc: string;
@@ -19,6 +33,7 @@ export interface ContestConfiguration {
   contestUrl: string;
   problems: ContestProblemConfiguration[];
   codeforces: ContestCodeforcesCredentials;
+  includedParticipantTypes: ScoreboardParticipantType[];
 }
 
 export const MIN_PROBLEM_COUNT = 1;
@@ -42,11 +57,12 @@ const DEFAULT_BALLOON_COLORS = [
 
 export function createDefaultContestConfiguration(now = new Date()): ContestConfiguration {
   return {
-    contestName: "Latin America Championship",
+    contestName: "",
     startAtUtc: toUtcDateTimeInputValue(now),
     durationMinutes: 300,
     freezeDurationMinutes: 60,
     contestUrl: "",
+    includedParticipantTypes: [...DEFAULT_INCLUDED_PARTICIPANT_TYPES],
     problems: resizeContestProblems([], DEFAULT_PROBLEM_COUNT),
     codeforces: {
       apiKey: "",
@@ -60,6 +76,9 @@ export function cloneContestConfiguration(
 ): ContestConfiguration {
   return {
     ...configuration,
+    includedParticipantTypes: [
+      ...(configuration.includedParticipantTypes ?? DEFAULT_INCLUDED_PARTICIPANT_TYPES)
+    ],
     problems: configuration.problems.map((problem) => ({ ...problem })),
     codeforces: { ...configuration.codeforces }
   };

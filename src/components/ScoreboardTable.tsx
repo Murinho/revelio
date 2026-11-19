@@ -1,7 +1,12 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { ProblemMeta, TeamStanding } from "../domain/types";
-import { formatPenalty } from "../utils/format";
+import { formatPenalty, truncateTeamLabel } from "../utils/format";
 import { ProblemCell } from "./ProblemCell";
+import {
+  ROW_REORDER_DURATION_MS,
+  ROW_REORDER_EASING,
+  ROW_REORDER_EASING_POINTS
+} from "../utils/rowMotion";
 
 interface ScoreboardTableProps {
   problems: ProblemMeta[];
@@ -15,9 +20,6 @@ interface ScoreboardTableProps {
   firstToSolveTwinkleMinute?: number | null;
 }
 
-const ROW_REORDER_DURATION_MS = 1500;
-const ROW_REORDER_EASING = "cubic-bezier(0.65, 0, 0.35, 1)";
-const ROW_REORDER_EASING_POINTS: CubicBezierPoints = [0.65, 0, 0.35, 1];
 const TEAM_CENTER_DURATION_MS = 950;
 const TEAM_CENTER_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 const TEAM_CENTER_EASING_POINTS: CubicBezierPoints = [0.22, 1, 0.36, 1];
@@ -71,13 +73,17 @@ export function ScoreboardTable({
 
       hasTableReorder = true;
       rowElement.getAnimations().forEach((animation) => animation.cancel());
+      // Keep rising rows above the rows they pass for the entire animation.
+      const zIndex = deltaY > 0 ? 1 : 0;
       rowElement.animate(
         [
           {
-            transform: `translateY(${deltaY}px)`
+            transform: `translateY(${deltaY}px)`,
+            zIndex
           },
           {
-            transform: "translateY(0)"
+            transform: "translateY(0)",
+            zIndex
           }
         ],
         {
@@ -292,7 +298,9 @@ export function ScoreboardTable({
                 </td>
                 <td className="scoreboard-table__cell scoreboard-table__cell--team">
                   <div className="team-cell">
-                    <strong className="team-cell__name">{getTeamPrimaryLabel(team)}</strong>
+                    <strong className="team-cell__name" title={getTeamPrimaryLabel(team)}>
+                      {truncateTeamLabel(getTeamPrimaryLabel(team))}
+                    </strong>
                     {getTeamMetaLabel(team) ? (
                       <span className="team-cell__meta">{getTeamMetaLabel(team)}</span>
                     ) : null}

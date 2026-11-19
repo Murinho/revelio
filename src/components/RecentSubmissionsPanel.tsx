@@ -6,6 +6,8 @@ import {
   TeamStanding
 } from "../domain/types";
 import { Panel } from "./Panel";
+import { truncateTeamLabel } from "../utils/format";
+import { useSubmissionMotion } from "../hooks/useSubmissionMotion";
 
 interface RecentSubmissionsPanelProps {
   problems: ProblemMeta[];
@@ -41,6 +43,7 @@ export function RecentSubmissionsPanel({
   submissions,
   teams
 }: RecentSubmissionsPanelProps) {
+  const rowElementsRef = useSubmissionMotion();
   const teamByName = new Map(teams.map((team) => [team.name, team]));
   const teamById = new Map(teams.map((team) => [team.id, team]));
   const problemByLabel = new Map(problems.map((problem) => [problem.label, problem]));
@@ -64,7 +67,7 @@ export function RecentSubmissionsPanel({
   return (
     <Panel title="Last Submissions">
       <ul className="submission-list">
-        {submissions.map((submission) => {
+        {submissions.map((submission, index) => {
           const team =
             (submission.teamId ? teamById.get(submission.teamId) : undefined) ??
             teamByName.get(submission.teamName);
@@ -75,21 +78,30 @@ export function RecentSubmissionsPanel({
             ? getSolvedProblemCell(team, submission.problemLabel)
             : null;
           const problem = problemByLabel.get(submission.problemLabel);
+          const teamLabel = team
+            ? team.organization
+              ? `[${team.organization}] ${team.name}`
+              : team.name
+            : submission.teamName;
 
           return (
-            <li className="submission-list__row" key={submission.id}>
+            <li
+              className="submission-list__row"
+              key={submission.id}
+              style={{ zIndex: submissions.length - index }}
+              ref={(element) => {
+                if (element) rowElementsRef.current.set(submission.id, element);
+                else rowElementsRef.current.delete(submission.id);
+              }}
+            >
               <span
                 className={`submission-list__cell submission-list__cell--rank submission-list__rank ${rankCellClass}`.trim()}
               >
                 {team ? team.rank : submission.contestMinute}
               </span>
               <div className="submission-list__cell submission-list__cell--team submission-list__details">
-                <p className="submission-list__team">
-                  {team
-                    ? team.organization
-                      ? `[${team.organization}] ${team.name}`
-                      : team.name
-                    : submission.teamName}
+                <p className="submission-list__team" title={teamLabel}>
+                  {truncateTeamLabel(teamLabel)}
                 </p>
                 {team?.members && team.members.length > 0 ? (
                   <p className="submission-list__team-meta">

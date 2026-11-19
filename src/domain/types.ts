@@ -63,6 +63,9 @@ export interface PendingRevealOutcome {
 export interface HiddenSubmission {
   id: string;
   contestMinute: number | null;
+  // Preserve exact ordering through frozen snapshots and submission reveals.
+  relativeTimeSeconds?: number;
+  submissionId?: number;
   result: "rejected" | "accepted" | "compilation-error";
 }
 

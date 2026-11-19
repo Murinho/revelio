@@ -1,4 +1,5 @@
 .app {
+  --team-width: 570px;
   position: relative;
   min-height: 100vh;
   overflow: auto;
@@ -32,6 +33,44 @@
   padding: 0.78rem;
 }
 
+.app__scoreboard--standby {
+  width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  grid-template-rows: auto 1fr;
+}
+
+.contest-countdown {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-width: 0;
+  padding: 2rem 0;
+  text-align: center;
+}
+
+.contest-countdown__time {
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: clamp(2rem, 10vw, 9rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: #2fc0ff;
+  text-shadow: 0 0 16px rgba(47, 192, 255, 0.3);
+}
+
+.contest-countdown__name {
+  max-width: 60rem;
+  margin: 0;
+  color: var(--text-soft);
+  font-size: clamp(1rem, 2.5vw, 2rem);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
 .app__backdrop {
   position: fixed;
   inset: 0;
@@ -46,8 +85,8 @@
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 405px max-content;
-  gap: 2.5rem;
+  grid-template-columns: minmax(405px, max-content) max-content;
+  gap: 1rem;
   padding: 0.78rem;
   width: max-content;
   min-width: max-content;
@@ -242,6 +281,7 @@
   font-size: clamp(5.3rem, 4vw, 5.3rem);
   font-weight: 800;
   line-height: 1;
+  white-space: nowrap;
   margin-bottom: 0.28rem;
   color: #2fc0ff;
   text-shadow: 0 0 16px rgba(47, 192, 255, 0.3);
@@ -287,6 +327,10 @@
 }
 
 .submission-list {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: calc(var(--team-width) + 148px + 0.54rem);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -295,8 +339,9 @@
 }
 
 .submission-list__row {
+  position: relative;
   display: grid;
-  grid-template-columns: 58px 250px 34px 56px;
+  grid-template-columns: 58px var(--team-width) 34px 56px;
   align-items: stretch;
   gap: 0.18rem;
   height: 60px;
@@ -351,6 +396,9 @@
   justify-content: center;
   height: 60px;
   padding: 0.22rem 0.56rem;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   text-align: center;
 }
 
@@ -486,8 +534,9 @@
 .scoreboard-table {
   --cell-gap: 3px;
   --rank-width: 54px;
-  --team-width: 250px;
   --score-width: 68px;
+  /* Preserve table-relative row offsets used by animation and auto-follow. */
+  position: relative;
   border-collapse: separate;
   border-spacing: var(--cell-gap);
   width: max-content;
@@ -547,6 +596,7 @@
 }
 
 .scoreboard-table__row {
+  position: relative;
   cursor: default;
   will-change: transform;
 }
@@ -623,8 +673,10 @@
 
 .team-cell {
   display: grid;
+  width: var(--team-width);
   gap: 0.35rem;
   padding: 0.22rem 0.56rem;
+  overflow-wrap: anywhere;
   text-align: center;
 }
 
@@ -708,8 +760,38 @@
 }
 
 .problem-cell--pending {
+  isolation: isolate;
   background: linear-gradient(180deg, #ffe473, #ffca36);
   color: #10151c;
+}
+
+.problem-cell--pending::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(180deg, #9c853e, #7f621f);
+  opacity: 0;
+  pointer-events: none;
+  animation: pending-cell-heartbeat 1.2s ease-in-out 3;
+}
+
+@keyframes pending-cell-heartbeat {
+  0%,
+  100% {
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .problem-cell--pending::before {
+    animation: none;
+  }
 }
 
 .problem-cell--pending .problem-cell__main {

@@ -1,3 +1,4 @@
+import { applyFirstToSolveFlags, rankTeams } from "./standings";
 import {
   ContestSnapshot,
   HiddenSubmission,
@@ -298,6 +299,8 @@ function createNextCell(
       problemLabel: cell.problemLabel,
       wrongAttempts,
       solveTime,
+      solveTimeSeconds: hiddenSubmission.relativeTimeSeconds ?? solveTime * 60,
+      solveSubmissionId: hiddenSubmission.submissionId,
       penalty:
         revealOutcome.penalty ?? solveTime + Math.max(0, wrongAttempts) * 20,
       firstToSolve: false
@@ -443,84 +446,6 @@ function findTeamById(teams: TeamStanding[], teamId: string): TeamStanding | nul
 
 function findNextPendingProblemIndex(team: TeamStanding): number {
   return team.problems.findIndex((cell) => isPendingCell(cell));
-}
-
-function applyFirstToSolveFlags(teams: TeamStanding[]): TeamStanding[] {
-  const nextTeams = teams.map((team) => ({
-    ...team,
-    problems: [...team.problems]
-  }));
-
-  if (nextTeams.length === 0) {
-    return nextTeams;
-  }
-
-  for (let problemIndex = 0; problemIndex < nextTeams[0].problems.length; problemIndex += 1) {
-    const solvedCells = nextTeams
-      .map((team, teamIndex) => {
-        const cell = team.problems[problemIndex];
-
-        return isSolvedCell(cell)
-          ? {
-              teamIndex,
-              cell
-            }
-          : null;
-      })
-      .filter((entry): entry is { teamIndex: number; cell: SolvedProblemCell } =>
-        entry !== null
-      )
-      .sort(
-        (leftEntry, rightEntry) =>
-          leftEntry.cell.solveTime - rightEntry.cell.solveTime ||
-          leftEntry.teamIndex - rightEntry.teamIndex
-      );
-
-    solvedCells.forEach(({ teamIndex, cell }, solvedIndex) => {
-      nextTeams[teamIndex].problems[problemIndex] = {
-        ...cell,
-        firstToSolve: solvedIndex === 0
-      };
-    });
-  }
-
-  return nextTeams.map((team) => ({
-    ...team,
-    solved: team.problems.filter(isSolvedCell).length,
-    penalty: team.problems.reduce(
-      (totalPenalty, cell) => totalPenalty + (isSolvedCell(cell) ? cell.penalty : 0),
-      0
-    ),
-    pendingProblemLabels: team.problems
-      .filter(isPendingCell)
-      .map((cell) => cell.problemLabel)
-  }));
-}
-
-function rankTeams(teams: TeamStanding[]): TeamStanding[] {
-  const markedById = new Map(teams.map((team) => [team.id, team.marked]));
-  const sortedTeams = [...teams].sort(
-    (leftTeam, rightTeam) =>
-      rightTeam.solved - leftTeam.solved ||
-      leftTeam.penalty - rightTeam.penalty
-  );
-  let currentRank = 0;
-  let previousSolved = Number.NaN;
-  let previousPenalty = Number.NaN;
-
-  return sortedTeams.map((team, index) => {
-    if (team.solved !== previousSolved || team.penalty !== previousPenalty) {
-      currentRank = index + 1;
-      previousSolved = team.solved;
-      previousPenalty = team.penalty;
-    }
-
-    return {
-      ...team,
-      rank: currentRank,
-      marked: markedById.get(team.id) ?? false
-    };
-  });
 }
 
 function isSolvedCell(cell: ProblemCellState): cell is SolvedProblemCell {

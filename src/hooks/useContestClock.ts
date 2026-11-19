@@ -14,6 +14,7 @@ export interface ContestClock {
   phase: ContestClockPhase;
   phaseLabel: string;
   timeLabel: string;
+  countdownLabel: string;
 }
 
 const CLOCK_TICK_MS = 1000;
@@ -71,7 +72,8 @@ export function buildContestClock(
       freezeDurationSeconds,
       phase: "standby",
       phaseLabel: "standby mode",
-      timeLabel: formatClockSeconds(0)
+      timeLabel: formatClockSeconds(0),
+      countdownLabel: "00:00:00"
     };
   }
 
@@ -90,7 +92,8 @@ export function buildContestClock(
     freezeDurationSeconds,
     phase,
     phaseLabel: formatContestClockPhase(phase),
-    timeLabel: formatClockSeconds(elapsedSeconds)
+    timeLabel: formatClockSeconds(elapsedSeconds),
+    countdownLabel: formatClockSeconds(Math.max(0, -rawElapsedSeconds)).padStart(8, "0")
   };
 }
 
@@ -148,7 +151,8 @@ function createEmptyContestClock(): ContestClock {
     freezeDurationSeconds: 0,
     phase: "standby",
     phaseLabel: "standby mode",
-    timeLabel: formatClockSeconds(0)
+    timeLabel: formatClockSeconds(0),
+    countdownLabel: "00:00:00"
   };
 }
 
