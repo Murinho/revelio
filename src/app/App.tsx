@@ -400,8 +400,8 @@ export function App() {
             />
 
             <footer className="scoreboard-footer">
-              <span>{snapshot.freezeLabel}</span>
-              <span>{snapshot.updatedAtLabel}</span>
+              <span></span>
+              <span></span>
             </footer>
           </section>
         </div>
