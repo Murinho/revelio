@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import {
   ProblemMeta,
   RecentSubmission,
@@ -6,10 +5,12 @@ import {
   TeamStanding
 } from "../domain/types";
 import { Panel } from "./Panel";
+import { SolvedProblemCell as SolvedSubmissionCell } from "./SolvedProblemCell";
 import { truncateTeamLabel } from "../utils/format";
 import { useSubmissionMotion } from "../hooks/useSubmissionMotion";
 
 interface RecentSubmissionsPanelProps {
+  firstToSolveTwinkleMinute?: number | null;
   problems: ProblemMeta[];
   submissions: RecentSubmission[];
   teams: TeamStanding[];
@@ -39,6 +40,7 @@ function getSubmissionCellClass(submission: RecentSubmission) {
 }
 
 export function RecentSubmissionsPanel({
+  firstToSolveTwinkleMinute = null,
   problems,
   submissions,
   teams
@@ -114,7 +116,13 @@ export function RecentSubmissionsPanel({
               </span>
               <div className="submission-list__cell submission-list__attempts">
                 {submission.status === "accepted" && solvedCell && problem ? (
-                  <SolvedSubmissionCell cell={solvedCell} problem={problem} />
+                  <SolvedSubmissionCell
+                    cell={solvedCell}
+                    problem={problem}
+                    firstToSolveTwinkleMinute={firstToSolveTwinkleMinute}
+                    bottomLabel={solvedCell.penalty}
+                    verdictLabel="accepted"
+                  />
                 ) : (
                   <div className={`problem-cell ${submissionCellClass}`}>
                     <span className="problem-cell__main">{pendingCell.main}</span>
@@ -127,34 +135,6 @@ export function RecentSubmissionsPanel({
         })}
       </ul>
     </Panel>
-  );
-}
-
-function SolvedSubmissionCell({
-  cell,
-  problem
-}: {
-  cell: SolvedProblemCell;
-  problem: ProblemMeta;
-}) {
-  return (
-    <div
-      className={`problem-cell problem-cell--solved ${
-        cell.firstToSolve ? "problem-cell--first-to-solve" : ""
-      }`.trim()}
-      title={`Problem ${cell.problemLabel}: accepted`}
-    >
-      <div
-        className={`balloon ${cell.firstToSolve ? "balloon--star" : "balloon--round"}`}
-        style={{ "--balloon-color": problem.color } as CSSProperties}
-      />
-      <span className="balloon__text balloon__text--overlay">
-        +{cell.wrongAttempts > 0 ? cell.wrongAttempts : ""}
-      </span>
-      <span className="problem-cell__bottom problem-cell__bottom--overlay">
-        {cell.penalty}
-      </span>
-    </div>
   );
 }
 

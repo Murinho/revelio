@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync, mkdirSync, writeFileSync, rmSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
+import { createHash } from "node:crypto";
 import ts from "typescript";
 
 // Compile only the domain modules exercised here, without adding a test runtime.
@@ -30,7 +31,7 @@ const require = createRequire(import.meta.url);
 const { createDefaultContestConfiguration, cloneContestConfiguration } =
   require(join(output, "domain/contestConfiguration.js"));
 const { createManagedContest } = require(join(output, "domain/managedContest.js"));
-const { buildCodeforcesContestSnapshot, isCodeforcesSubmissionEligible } =
+const { buildCodeforcesContestSnapshot, isCodeforcesSubmissionEligible, loadCodeforcesContestSubmissions } =
   require(join(output, "services/codeforcesContestGateway.js"));
 const { buildUnfreezeRevealEvents, applyUnfreezeProgress } = require(join(output, "domain/unfreezeSimulation.js"));
 const { createLiveSubmissionTracker, updateLiveSubmissionTracker, revealReadyLiveSubmissions } =
@@ -60,6 +61,49 @@ function submission(type, time = 400, overrides = {}) {
 function names(snapshot) {
   return snapshot.teams.map((team) => team.name).sort();
 }
+
+test("submission requests use signed manager access on every page only with credentials", async (t) => {
+  const requests = [];
+  const page = Array.from({ length: 5000 }, () => submission("CONTESTANT"));
+  const originalWindow = globalThis.window;
+  globalThis.window = { setTimeout, clearTimeout };
+  t.mock.method(globalThis, "fetch", async (url) => {
+    requests.push(new URL(url));
+    return new Response(JSON.stringify({
+      status: "OK",
+      result: requests.length === 1 ? page : []
+    }));
+  });
+
+  try {
+    const entries = await loadCodeforcesContestSubmissions(123, {
+      apiKey: " test-key ", apiSecret: " test-secret "
+    });
+    assert.equal(entries.length, 5000);
+    assert.equal(requests.length, 2);
+    for (const [index, url] of requests.entries()) {
+      assert.equal(url.searchParams.get("asManager"), "true");
+      assert.equal(url.searchParams.get("from"), String(1 + index * 5000));
+      assert.equal(url.searchParams.get("apiKey"), "test-key");
+      const signature = url.searchParams.get("apiSig");
+      const parameters = new URLSearchParams(url.searchParams);
+      parameters.delete("apiSig");
+      parameters.sort();
+      const expectedHash = createHash("sha512")
+        .update(`${signature.slice(0, 6)}/contest.status?${parameters}#test-secret`)
+        .digest("hex");
+      assert.equal(signature.slice(6), expectedHash);
+    }
+
+    await loadCodeforcesContestSubmissions(123, { apiKey: " ", apiSecret: " " });
+    assert.equal(requests[2].searchParams.has("asManager"), false);
+    assert.equal(requests[2].searchParams.has("apiKey"), false);
+    assert.equal(requests[2].searchParams.has("apiSig"), false);
+  } finally {
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+  }
+});
 
 for (let mask = 0; mask < 8; mask++) {
   const selected = selectableTypes.filter((_, index) => mask & (1 << index));
@@ -335,7 +379,16 @@ for (const verdict of ["OK", "WRONG_ANSWER", "COMPILATION_ERROR"]) {
       assert.equal(revealed.recentSubmissions[0].status,
         verdict === "OK" ? "accepted" : verdict === "COMPILATION_ERROR" ? "compilation-error" : "rejected");
       assert.equal(revealed.teams[0].problems[0].kind,
-        verdict === "OK" ? "solved" : verdict === "COMPILATION_ERROR" ? "untouched" : "failed");
+        verdict === "OK" ? "solved" : "failed");
+      if (verdict === "COMPILATION_ERROR") {
+        for (const freeze of [false, true]) {
+          const snapshot = trackedSnapshot(tracker, entries, freeze ? 300 : 299, freeze);
+          assert.equal(snapshot.teams[0].problems[0].kind, "failed");
+          assert.equal(snapshot.teams[0].problems[0].wrongAttempts, 0);
+          assert.equal(snapshot.recentSubmissions[0].summary, "X +0");
+          assert.equal(snapshot.teams[0].penalty, 0);
+        }
+      }
       assert.equal(tracker.pendingSubmissionIds.size, 0);
       assert.equal(tracker.revealAtMsBySubmissionId.size, 0);
     });

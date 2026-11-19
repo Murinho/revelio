@@ -1,5 +1,5 @@
-import type { CSSProperties } from "react";
 import { ProblemCellState, ProblemMeta } from "../domain/types";
+import { SolvedProblemCell } from "./SolvedProblemCell";
 
 interface ProblemCellProps {
   cell: ProblemCellState;
@@ -50,33 +50,13 @@ export function ProblemCell({
     );
   }
 
-  const shouldTwinkleFirstToSolve =
-    cell.firstToSolve && firstToSolveTwinkleMinute !== null;
-  const solvedClassName = [
-    "problem-cell",
-    "problem-cell--solved",
-    cell.firstToSolve ? "problem-cell--first-to-solve" : "",
-    shouldTwinkleFirstToSolve ? "problem-cell--first-to-solve-twinkle" : ""
-  ]
-    .filter(Boolean)
-    .join(" ");
-
   return (
-    <div
-      className={solvedClassName}
-      title={`Problem ${cell.problemLabel}: solved`}
-    >
-      <div
-        className={`balloon ${cell.firstToSolve ? "balloon--star" : "balloon--round"}`}
-        style={{ "--balloon-color": problem.color } as CSSProperties}
-      />
-      <span className="balloon__text balloon__text--overlay">
-        +{cell.wrongAttempts > 0 ? cell.wrongAttempts : ""}
-      </span>
-      <span className="problem-cell__bottom problem-cell__bottom--overlay">
-        {cell.solveTime}
-      </span>
-    </div>
+    <SolvedProblemCell
+      cell={cell}
+      problem={problem}
+      firstToSolveTwinkleMinute={firstToSolveTwinkleMinute}
+      bottomLabel={cell.solveTime}
+    />
   );
 }
 

@@ -88,7 +88,7 @@ try {
   await page.locator(".app__layout").waitFor();
   assert.equal(await timer.count(), 0);
   assert.equal(await page.locator(".timer-panel__clock").textContent(), "0:00:00");
-  assert.equal(await page.locator(".submission-list, .scoreboard-table, .scoreboard-toolbar__summary").count(), 3);
+  assert.equal(await page.locator(".submission-list, .scoreboard-table").count(), 2);
   assert.equal(await page.getByRole("button", { name: "Edit Contest", exact: true }).count(), 1);
   await page.getByRole("button", { name: "Edit Contest", exact: true }).click();
   await page.getByRole("heading", { name: "Edit Contest", exact: true }).waitFor();

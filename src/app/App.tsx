@@ -16,8 +16,7 @@ import {
 } from "./routes";
 import {
   cloneContestConfiguration,
-  createDefaultContestConfiguration,
-  formatLocalStartSummary
+  createDefaultContestConfiguration
 } from "../domain/contestConfiguration";
 import {
   createManagedContest,
@@ -364,22 +363,13 @@ export function App() {
       <div className="app__scoreboard">
         <header className="scoreboard-toolbar">
           {scoreboardActions}
-
-          <div className="scoreboard-toolbar__summary">
-            <span className="scoreboard-toolbar__chip">Contest {route.contestId}</span>
-            <span className="scoreboard-toolbar__chip">
-              {snapshot.problems.length} problems
-            </span>
-            <span className="scoreboard-toolbar__chip">
-              {formatLocalStartSummary(configuration.startAtUtc)}
-            </span>
-          </div>
         </header>
 
         <div className="app__layout">
           <aside className="app__sidebar">
             <TimerPanel clock={contestClock} snapshot={snapshot} />
             <RecentSubmissionsPanel
+              firstToSolveTwinkleMinute={firstToSolveTwinkleMinute}
               problems={snapshot.problems}
               submissions={snapshot.recentSubmissions}
               teams={snapshot.teams}
@@ -400,8 +390,8 @@ export function App() {
             />
 
             <footer className="scoreboard-footer">
-              <span>{snapshot.freezeLabel}</span>
-              <span>{snapshot.updatedAtLabel}</span>
+              <span></span>
+              <span></span>
             </footer>
           </section>
         </div>
@@ -420,11 +410,7 @@ function getFirstToSolveTwinkleMinute(
     return null;
   }
 
-  const secondsSinceFullMinute = elapsedSeconds % 60;
-
-  if (secondsSinceFullMinute >= 5) {
-    return null;
-  }
-
+  // Keep the minute stable between boundaries; solved cells own the animation
+  // lifetime so a verdict reveal always gets its full five seconds.
   return Math.floor(elapsedSeconds / 60);
 }
