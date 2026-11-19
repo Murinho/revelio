@@ -16,8 +16,7 @@ import {
 } from "./routes";
 import {
   cloneContestConfiguration,
-  createDefaultContestConfiguration,
-  formatLocalStartSummary
+  createDefaultContestConfiguration
 } from "../domain/contestConfiguration";
 import {
   createManagedContest,
@@ -364,16 +363,6 @@ export function App() {
       <div className="app__scoreboard">
         <header className="scoreboard-toolbar">
           {scoreboardActions}
-
-          <div className="scoreboard-toolbar__summary">
-            <span className="scoreboard-toolbar__chip">Contest {route.contestId}</span>
-            <span className="scoreboard-toolbar__chip">
-              {snapshot.problems.length} problems
-            </span>
-            <span className="scoreboard-toolbar__chip">
-              {formatLocalStartSummary(configuration.startAtUtc)}
-            </span>
-          </div>
         </header>
 
         <div className="app__layout">
